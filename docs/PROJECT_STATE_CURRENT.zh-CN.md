@@ -1,232 +1,193 @@
 # 当前项目状态
 
-更新日期：2026-07-06。本文档用于阶段 0A 之后的接力，记录本机只读审查证据、已冻结契约、未冻结事项和当前仓库状态。
+更新日期：2026-07-10。本文档用于阶段 0B 之后的接力，记录本机真实仓库状态、只读审查证据、已冻结契约、运行环境候选配置、Longdress pilot 路线和仍未冻结事项。
 
-## 1. 项目定位
+## 1. 当前项目定位
 
-本仓库位于 Stage2 allocation 与 data-prep 之间，用于准备候选级端侧处理耗时 `d_ms` benchmark。当前目标是冻结测量语义、输入资产范围、运行环境原则、数据来源语义和后续对接边界。
+本仓库位于 Stage2 allocation 与 data-prep 之间，用于准备候选级端侧处理耗时 `d_ms` benchmark。阶段 0A 已冻结第一版 `d_ms` 语义与边界；阶段 0B 进一步冻结运行环境候选配置、Longdress pilot 抽样路线和三类记录格式草案。
 
-本阶段没有实现代码、没有测量结果、没有候选级 `d_ms` 数据表、没有耗时模型、没有 allocation 输入文件。
+当前仍没有实现代码、没有测量结果、没有候选级 `d_ms` 数据表、没有耗时模型、没有 allocation 输入文件。
 
-## 2. Git 初始状态与本轮提交
+## 2. Git 状态
 
-阶段 0A 开始时，当前目录没有 `.git`，仅有研究者手动创建的 `reference/Decode_Worker.js`。本轮已执行 `git init -b master`，并配置远程：
-
-```text
-https://github.com/CCX39/pcv-stage2-dms-benchmark.git
-```
-
-本轮提交主题为：
+本机仓库路径：
 
 ```text
-docs: establish d_ms benchmark baseline
+E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark
 ```
 
-未执行 `git push`。
-
-## 3. 阶段 0A 已完成事项
-
-- 初始化当前 benchmark 仓库；
-- 添加最小 `.gitignore`；
-- 创建中文 README；
-- 创建 `docs/MEASUREMENT_CONTRACT.zh-CN.md`；
-- 创建本状态文档；
-- 只读审查 `pcv-stage2-data-prep`、`pcv-stage2-allocation`、旧 `PointCloud_Benchmark` 与 `reference/Decode_Worker.js`；
-- 记录 `reference/Decode_Worker.js` 的 SHA-256；
-- 明确本阶段未做任何实现、测量、抽样、拟合或 allocation 接入。
-
-## 4. 只读审查对象与发现
-
-### 4.1 pcv-stage2-data-prep
-
-本机路径：
-
-```text
-E:\Miunaaaa\0-work\code\pcv-stage2-data-prep
-```
-
-本机 HEAD：
-
-```text
-8473226f653cac1ed2be4c9be5287f6ff23de08b
-```
-
-Git 状态为干净：`## main...origin/main`。
-
-关键 evidence：
-
-- `configs/pilot_grid_profile.longdress_1051_g128_raw_v1.json`；
-- `configs/pilot_sampling_profile.longdress_1051_g128_tilelocal_pdl5_v1.json`；
-- `configs/pilot_drc_corpus.longdress_1051_g128_pdl5_qp3_cl10_v1.json`；
-- `artifacts/pilot_1051_g128_tilelocal_pdl5_v1/generation_manifest.json`；
-- `artifacts/pilot_1051_g128_tilelocal_pdl5_v1/frame_1051_tile_index.json`；
-- `artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/generation_manifest.json`；
-- `artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/generation_summary.json`；
-- `artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/validation_report.json`；
-- `docs/DATA_PREP_CONTRACT.zh-CN.md`；
-- `docs/PILOT_MULTIPDL_BINARY_ASSETS_CURRENT.zh-CN.md`；
-- `docs/PILOT_DRC_CORPUS_CURRENT.zh-CN.md`。
-
-发现摘要：
-
-- frame 1051 pilot 的 Stage2 tile binary PLY metadata 位于 `artifacts/pilot_1051_g128_tilelocal_pdl5_v1/`，核心索引是 `frame_1051_tile_index.json`。
-- frame 1051 pilot 的 DRC corpus metadata 位于 `artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/`，核心 manifest 是 `generation_manifest.json`。
-- tile binary PLY root 记录 `dataset_id`、`frame_id`、`grid_profile_id`、`tile_id`、`target_pdl`、`source_point_count`、`retained_point_count`、`actual_retained_ratio`、`relative_path`、`file_size_bytes`、`sha256` 与 `provenance_kind`。
-- DRC manifest 记录 `variant_id`、`tile_id`、`source_pdl`、`codec_id`、`point_cloud_flag`、`compression_level`、`qp`、source PLY relpath/hash/size/point count、DRC relpath/hash/size、encoder/decoder path/hash、encoder command argv、basic decode-integrity 结果与 decoded schema 字段。
-- DRC corpus summary 显示 frame 1051 pilot 覆盖 40 个非空 tile、5 个 source_pdl、3 个 qp，共 600 个 DRC variants；对应 tile binary PLY 为 200 个候选资产。
-- 当前 active DRC profile 与用户给定契约一致：`-point_cloud` 显式传入，`-cl 10` 显式固定，`-qp` 取当前三档；`-qc`、`-qg` 等未显式传入。
-- data-prep 的 decode-integrity validation 是资产完整性检查，不是 target-side `d_ms`。
-
-可作为 future benchmark 对齐字段：
-
-- `dataset_id`；
-- `frame_id`；
-- `grid_profile_id`；
-- `tile_id`；
-- `target_pdl` / `source_pdl` / `pdl_ratio`；
-- `file_format` / `codec_id`；
-- `qp`；
-- `compression_level` / `cl`；
-- point-cloud mode；
-- `relative_path` / `asset_ref`；
-- `file_size_bytes`；
-- `point_count` / `source_point_count` / `retained_point_count`；
-- `sha256`；
-- `provenance_kind`；
-- data-prep profile id 与 manifest hash。
-
-### 4.2 pcv-stage2-allocation
-
-本机路径：
-
-```text
-E:\Miunaaaa\0-work\code\pcv-stage2-allocation
-```
-
-本机 HEAD：
-
-```text
-5870ccceb92598c3b66cffffe3adfa386cfde618
-```
-
-Git 状态为干净：`## master...origin/master`。
-
-关键 evidence：
-
-- `src/pcv_stage2/frame1051_metadata_bridge.py`；
-- `schemas/stage2_input.schema.json`；
-- `configs/frame1051_fullbody_proxy_dms_sensitivity_v1.json`；
-- `configs/frame1051_integrated_proxy_mainline_v1.json`；
-- `README.zh-CN.md`；
-- `docs/IMPLEMENTATION_STATE_CURRENT.zh-CN.md`；
-- `docs/manual_review_checklist.zh-CN.md`。
-
-发现摘要：
-
-- 当前真实候选 metadata bridge 位于 `src/pcv_stage2/frame1051_metadata_bridge.py`。
-- bridge 只读消费 data-prep 的 profile、manifest、tile index 和 validation report，构建 `frame1051_candidate_metadata_catalog`。
-- catalog 自身声明 `solver_ready = false`，不是正式 `Stage2Input`。
-- PLY candidate identity 形如 `ply__pdl_*`，DRC candidate identity 形如 `drc__pdl_*__qp_*__cl_10`。
-- `r_bytes` 来自候选文件本体字节数，provenance 为 `measured`，但不是端到端网络开销。
-- `d_ms_status` 与 `q_base_status` 在真实 catalog 中保持 `pending`。
-- allocation 的 proxy pilot 会按 candidate kind 注入固定 proxy `d_ms`，但这些值只是 solver behavior sensitivity 用的 proxy，不是 target-side measured benchmark，也不是逐 tile 测量。
-- 当前 PDL lookup 使用 `candidate.pdl_ratio <= pdl_max_dist` 的 cap 语义，来源是 PLY nested-PDL calibration，不是 DRC-aware quality measurement。
-
-后续 benchmark 结果与 allocation join 时，应使用稳定 metadata 组合校验：`dataset_id`、`frame_id`、`grid_profile_id`、`tile_id`、`candidate_id`、`file_format`、`codec`、`codec_params`、`source_pdl` / `pdl_ratio`、`qp`、`cl`、`asset_ref` 与 hash。不得依赖候选数组顺序。
-
-### 4.3 旧 PointCloud_Benchmark
-
-本机路径：
-
-```text
-E:\Miunaaaa\0-work\code\PointCloud_Benchmark
-```
-
-本机 HEAD：
-
-```text
-cb3a1975464c9d26cccff9861943e394f10aada3
-```
-
-Git 状态含既有未跟踪文件：
+当前真实分支与 upstream：
 
 ```text
 ## main...origin/main
-?? scripts/plot_time_vs_point_count_filtered.py
 ```
 
-本轮未修改该仓库。
-
-关键 evidence：
-
-- `src/main.cpp`；
-- `src/parser/PlyParser.cpp`；
-- `src/parser/DrcParser.cpp`；
-- `src/include/Timer.hpp`；
-- `src/include/PointCloudData.hpp`；
-- `scripts/benchmark_python.py`；
-- `scripts/run_benchmark.py`；
-- `requirements.txt`。
-
-发现摘要：
-
-- C++ PLY parser 的 `Timer` 从 `PlyParser::parse(filepath)` 进入即开始，随后执行 `std::ifstream` open、header 读取、binary payload 读取和结构整理；因此包含磁盘 open/read。
-- C++ DRC parser 的 `Timer` 从 `DrcParser::parse(filepath)` 进入即开始，随后执行 `std::ifstream` open/read、Draco decode 和属性提取；因此包含磁盘 open/read。
-- C++ 使用 Draco C++ library；PLY parser 是项目内的 binary PLY 读取实现。
-- Python PLY 使用 Open3D Tensor API `o3d.t.io.read_point_cloud`；Python DRC 使用 `Path.read_bytes()` 加 `DracoPy.decode`，因此 Python 计时也包含文件读取。
-- `scripts/run_benchmark.py` 支持重复运行并求平均值，记录 wall-clock、CPU、memory 与 CSV 输出；没有阶段 0A 契约要求的 warmup、p50、p95、stddev 完整统计冻结。
-- 旧仓库可参考 parser 路径、异常处理和结果字段，但其计时边界、输入组织和输出格式不能直接复用为本项目第一版 `d_ms`。
-
-### 4.4 reference/Decode_Worker.js
-
-本机路径：
+当前远程：
 
 ```text
-E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark\reference\Decode_Worker.js
+origin  https://github.com/CCX39/pcv-stage2-dms-benchmark.git (fetch)
+origin  https://github.com/CCX39/pcv-stage2-dms-benchmark.git (push)
 ```
 
-SHA-256：
+阶段 0A 完成后，本地分支已统一为 `main` 并跟踪 `origin/main`。阶段 0B 开始时 HEAD 为：
 
 ```text
-0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
+d0b9a9b docs: establish d_ms benchmark baseline
 ```
 
-发现摘要：
+阶段 0B 本轮提交主题为：
 
-- Worker 通过 `self.onmessage` 接收 `data`、`cellKey`、`cellId`、`frameId` 与 `transMode`。
-- PLY 路径调用 `self.parsePLY(...)`，内部确认 `ArrayBuffer`，必要时从 `Uint8Array` 转换，然后使用 Three.js `PLYLoader.parse`。
-- DRC 路径调用 `self.decodeDRC(...)`，内部确认 `ArrayBuffer`，构造 `DRACOLoader`，设置 decoder path 与 WASM config，然后调用 `dracoLoader.parse`。
-- 两条路径都返回 positions、colors 和 normals，并把 positions/colors/normals 的 buffer 作为 transferable object 发回主线程。
-- 当前文件内的 `performance.now()` 计时覆盖了 parse/decode 路径内的一些工作，但还包括 normals 计算；阶段 0A 的统一 CPU 点云结构只冻结 positions 与 colors，normals 是否纳入后续 JS `d_ms` 未冻结。
-- 未来 JS `d_ms` 边界内应包含 payload 已在 Worker 可访问 `ArrayBuffer` 后的 PLY parse 或 DRC decode、必要属性提取和 TypedArray 生成。
-- 未来 JS `d_ms` 边界外应排除 Worker 启动、主线程到 Worker 的 `postMessage`、Worker 返回主线程的消息传输、主线程 geometry 创建与 GPU upload。
-- 本轮未重构、未优化、未复制、未修改该文件。
+```text
+docs: define runtime sampling and record plan
+```
 
-## 5. 已确认、已冻结的决策
+本轮不执行 `git push`，因此提交后预期 `git status -sb` 显示本地相对 `origin/main` ahead。
 
-- `d_ms` 是固定运行环境中的候选级 CPU 侧处理耗时，不是文件大小、下载时间或端到端延迟。
-- 第一版测量边界从“候选文件完整内容已经驻留内存后调用解析/解码逻辑”开始，到“统一 CPU 点云结构生成”为止。
-- 统一 CPU 点云结构建议为 `positions: float32[N, 3]` 与 `colors: uint8[N, 3]`。
-- C++、Python、JavaScript Worker 三类环境独立建模，不混为同一个 `d_ms`。
-- 第一版采用单候选、无已解码对象缓存、C++ / Python 默认单线程、单 Worker 内单候选处理的基线。
-- 正式待测资产仅为 Stage2 tile binary PLY 与 Stage2 tile DRC。
-- raw ASCII full-cloud PLY 只作为来源追溯与 data-prep 输入背景。
-- 当前 Longdress frame 1051 pilot DRC active profile 只冻结为本 pilot 的事实，不是永久 Stage2 profile。
-- provenance 必须区分 `measured`、`calibrated`、`derived`、`proxy`、`synthetic`。
+## 3. 阶段 0B 已完成事项
 
-## 6. 尚未冻结的决策
+- 确认当前分支为 `main`，upstream 为 `origin/main`；
+- 确认 `.gitignore` 已是一行一个规则，无需修正；
+- 新增 `docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md`；
+- 小幅更新 README，加入阶段 0B 文档入口和 Longdress pilot 路线摘要；
+- 小幅更新测量契约，加入阶段 0B 计划文档引用；
+- 更新本状态文档；
+- 只读探测本机 Python、Node、C++ 工具链候选可见状态；
+- 只读确认外部仓库状态和 Longdress 原始路径存在性；
+- 确认 `reference/Decode_Worker.js` SHA-256 未变化。
 
-- 各环境的 compiler / interpreter / browser / library / Draco runtime 版本；
-- C++、Python、JavaScript 的正式计时 API 与 runtime 初始化排除方式；
-- warmup 次数、正式 sample 次数、异常处理和离群值策略；
-- Stage2 最终使用 `p50`、`mean`、`p95` 或其他统计量；
-- 覆盖性抽样规则；
-- 模型形式、feature set 与验证协议；
-- 是否纳入 normals 或其他属性；
-- benchmark 输出 schema 与 allocation 正式 join schema；
-- 多帧或全序列扩展策略。
+## 4. .gitignore 状态
 
-## 7. 当前可用输入资产线索
+`.gitignore` 当前为一行一个规则，包含：
+
+```text
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+dist/
+build/
+out/
+outputs/
+artifacts/
+coverage/
+*.log
+.env
+.env.*
+local/
+```
+
+未忽略 `reference/Decode_Worker.js`、`README.zh-CN.md` 或 `docs/`。本轮没有创建 `outputs/`、`artifacts/`、`local/` 等目录。
+
+## 5. 运行环境探测结果
+
+以下只是阶段 0B 的只读探测，不代表正式依赖冻结：
+
+| 命令 | 当前结果 |
+| --- | --- |
+| `python --version` | `Python 3.13.12` |
+| `where python` | `C:\Users\admin\miniconda3\python.exe`; `C:\Users\admin\AppData\Local\Programs\Python\Python313\python.exe`; `C:\Users\admin\AppData\Local\Microsoft\WindowsApps\python.exe` |
+| `node --version` | `v22.11.0` |
+| `where node` | `C:\Program Files\nodejs\node.exe` |
+| `where cl` | 未找到 |
+| `where g++` | `C:\mingw64\bin\g++.exe` |
+| `where cmake` | `C:\Program Files\CMake\bin\cmake.exe` |
+
+正式测量前仍需冻结 compiler / interpreter / browser / library / Draco runtime 版本、构建方式、计时 API、warmup 与 sample 策略。
+
+## 6. 阶段 0B 运行环境候选配置摘要
+
+C++：
+
+- 用于 native CPU 侧 PLY parse / DRC decode 基线；
+- 候选计时 API 为 `std::chrono::steady_clock`；
+- 可参考旧 `PointCloud_Benchmark` 的 C++ parser 与 Draco 调用思路；
+- 旧仓库不能直接复用，因为其计时包含磁盘 open/read，且输出统计不满足新契约。
+
+Python：
+
+- 用于 Python runtime 下的环境专属 `d_hat_ms`；
+- 候选计时 API 为 `time.perf_counter()`；
+- Open3D、DracoPy 或其他库都只是候选，依赖尚未冻结；
+- Python 结果受解释器和库实现影响，不得与 C++ 或 JS 混用。
+
+JavaScript Worker：
+
+- 用于浏览器 Worker 内 payload 已可访问后的 parse/decode 到 TypedArray 生成；
+- 候选计时 API 为 `performance.now()`；
+- 参考 `reference/Decode_Worker.js`；
+- Worker 启动、`postMessage`、主线程 geometry、GPU upload 不计入；
+- normals 是否纳入仍为 pending。
+
+## 7. Longdress pilot 与多数据集路线
+
+第一部分先使用 Longdress 数据集快速给出第一版结果，为 `pcv-stage2-allocation` 实验提供可用的环境专属 `d_hat_ms` 输入。
+
+第二部分未来扩展到其他数据集，用于验证模型泛化性和修正误差。
+
+当前最快路径是使用 `pcv-stage2-data-prep` 已有 frame 1051 G128 tile binary PLY 和 DRC corpus metadata 设计覆盖性抽样。正式测量输入仍只允许 Stage2 tile binary PLY 和 Stage2 tile DRC；raw ASCII full-cloud PLY 只作为来源背景。
+
+若未来使用 Longdress 多帧样本，需要单独决定由 data-prep 生成多帧 tile assets，还是在本 benchmark 仓库中生成 ignored 本地临时样本。当前阶段不生成多帧样本。未来若生成本地临时样本，必须明确 provenance，不能伪装为 data-prep 已发布资产。
+
+## 8. 记录格式规划摘要
+
+直接测量记录 `measured record` 至少包含：
+
+- 环境与候选身份：`measurement_id`、`environment_id`、`representation`、`dataset_id`、`frame_id`、`grid_profile_id`、`tile_id`、`candidate_id` 或 candidate identity fields；
+- 候选 metadata：`source_pdl` / `pdl_ratio`、`file_format`、`codec`、`codec_params`、`asset_ref`、`artifact_sha256`、`point_count`、`file_size_bytes`；
+- 计时与统计：`timer_api`、`runtime_versions`、`warmup_count`、`sample_count`、`raw_samples_ms`、`p50`、`mean`、`p95`、`stddev`；
+- 状态与来源：`status`、`warning_codes`、`provenance = measured`。
+
+模型标定记录 `calibrated record` 至少包含 `calibration_id`、`environment_id`、`representation`、`input_measurement_ids`、`feature_set`、`model_family`、`fit_parameters`、`validation_protocol`、`error_metrics`、`applicable_candidate_scope`、`limitations`、`provenance = calibrated`。
+
+候选级估计记录 `derived record` 至少包含 `environment_id`、candidate identity fields、`candidate_metadata_snapshot`、`calibration_id`、`d_hat_ms`、`statistic_policy`、`prediction_error_summary` 或 `model_error_reference`、`provenance = derived`、`limitations`。derived record 不是逐候选直接 measured 结果。
+
+## 9. allocation join 原则
+
+后续与 allocation 对齐时不能依赖候选数组位置，应使用稳定字段组合：
+
+- `dataset_id`
+- `frame_id`
+- `grid_profile_id`
+- `tile_id`
+- `candidate_id`
+- `representation` / `file_format` / `codec`
+- `source_pdl` / `pdl_ratio`
+- `qp`
+- `cl`
+- point-cloud mode
+- `asset_ref`
+- artifact hash
+
+`r_bytes` 是文件本体字节数，仍来自 data-prep / allocation metadata；`d_hat_ms` 是 benchmark 产物。二者语义不同。
+
+## 10. 外部仓库只读状态
+
+`pcv-stage2-data-prep`：
+
+```text
+HEAD 8473226f653cac1ed2be4c9be5287f6ff23de08b
+status ## main...origin/main
+```
+
+`pcv-stage2-allocation`：
+
+```text
+HEAD 5870ccceb92598c3b66cffffe3adfa386cfde618
+status ## master...origin/master
+```
+
+旧 `PointCloud_Benchmark`：
+
+```text
+HEAD cb3a1975464c9d26cccff9861943e394f10aada3
+status ## main...origin/main
+       ?? scripts/plot_time_vs_point_count_filtered.py
+```
+
+旧 benchmark 的未跟踪脚本是既有状态，本轮未修改。
+
+## 11. 当前可用输入资产线索
 
 原始 Longdress raw ASCII full-cloud PLY 路径存在：
 
@@ -234,42 +195,68 @@ SHA-256：
 E:\Miunaaaa\0-work\data\8i\longdress\longdress\Ply
 ```
 
-该路径下可见 `longdress_vox10_1051.ply` 等原始帧文件。本阶段只做目录级确认和少量文件名查看，未读取原始 PLY 内容。
+本轮只做存在性和文件名级别确认，可见 `longdress_vox10_1051.ply` 到 `longdress_vox10_1055.ply` 等文件名，未读取大文件内容。
 
 data-prep 当前可用的正式候选资产线索：
 
 - Stage2 tile binary PLY root：`artifacts/pilot_1051_g128_tilelocal_pdl5_v1/`；
-- Stage2 tile DRC root：`artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/`；
-- 这些路径记录在 data-prep repo 的 metadata 中，是本机审查线索；未来 benchmark 运行时配置不应硬编码本机绝对路径。
+- Stage2 tile DRC root：`artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/`。
 
-## 8. 当前没有的内容
+这些路径是本机人工审查线索，未来运行时代码或配置不得硬编码本机绝对路径。
+
+## 12. reference/Decode_Worker.js
+
+SHA-256：
+
+```text
+0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
+```
+
+阶段 0A 与阶段 0B 哈希一致。本轮未修改该文件。
+
+## 13. 当前没有的内容
 
 当前仓库没有：
 
-- `src/`；
-- `tests/`；
-- `scripts/`；
-- `schemas/`；
-- `configs/`；
-- `CMakeLists.txt`；
-- `package.json`；
-- `pyproject.toml`；
-- `requirements.txt`；
-- benchmark runner；
-- PLY / DRC parser；
-- 任何测量结果；
-- 任何 `d_ms` 数据表；
-- 任何拟合模型；
-- 任何 allocation 接入逻辑。
+- `src/`
+- `tests/`
+- `scripts/`
+- `schemas/`
+- `configs/`
+- `CMakeLists.txt`
+- `package.json`
+- `pyproject.toml`
+- `requirements.txt`
+- benchmark runner
+- PLY / DRC parser
+- 任何测量结果
+- 任何 `d_ms` 数据表
+- 任何拟合模型
+- 任何 allocation 接入逻辑
+- 任何生成点云资产
 
-## 9. 下一阶段建议
+## 14. 已冻结事项
 
-建议下一阶段先冻结每个目标环境的 runtime 与计时 API，然后定义只读 benchmark 输入清单 schema、直接测量记录 schema、模型标定记录 schema 和候选级 derived 估计记录 schema。实现前应继续遵守：不把 data-prep validation 当成 `d_ms`，不把 allocation proxy 当成 measured，不把 raw full-cloud PLY 当成正式 benchmark 输入。
+- 第一版 `d_ms` 定义与计时边界；
+- 三类环境独立建模；
+- 正式输入资产仅为 Stage2 tile binary PLY 与 Stage2 tile DRC；
+- raw ASCII full-cloud PLY 只作为来源背景；
+- 第一版 Longdress pilot 先行、后续多数据集扩展的路线；
+- 直接测量、模型标定、候选级 derived 三类记录字段草案；
+- allocation join 不依赖候选数组位置。
 
-## 10. 风险与注意事项
+## 15. 仍未冻结事项
 
-- data-prep manifest 中记录的 Draco executable 行为只证明当前 pilot 的显式命令参数；未显式参数不得推断为固定取值。
-- 旧 benchmark 的计时包含磁盘读取，与阶段 0A 冻结边界不同。
-- JavaScript Worker 参考文件当前包含 normals 计算和每次构造 `DRACOLoader` 的行为；这些都不是未来 JS benchmark 的已冻结实现。
-- allocation 当前 proxy `d_ms` 只能解释 solver sensitivity pilot，不能作为真实 target-side benchmark。
-- 文档可记录本机路径用于人工审查，但未来运行时代码或配置不得硬编码这些绝对路径。
+- 具体 compiler / interpreter / browser / library / Draco runtime 版本；
+- C++、Python、JavaScript 的正式计时 API 细节和代码实现；
+- warmup、sample count、异常处理和离群值策略；
+- Stage2 最终使用 `p50`、`mean`、`p95` 或其他统计量；
+- 抽样数量和具体候选文件清单；
+- 模型形式、feature set 和验证协议；
+- 多帧 Longdress 样本由 data-prep 生成还是 benchmark ignored 临时生成；
+- 是否纳入 normals 或其他属性；
+- benchmark 输出 schema 与 allocation 正式输入 schema。
+
+## 16. 下一阶段建议
+
+下一阶段可以在仍不测量的前提下设计具体 benchmark 输入清单生成规则和测量 runner 接口；或者进入实现前准备，先冻结每个环境的 dependency 版本、构建方式、计时 API 和输出文件布局。进入任何实现前，仍需保持 provenance 区分，避免把 allocation proxy、data-prep validation 或 derived 估计写成 measured。

@@ -9,7 +9,7 @@
 与相邻仓库的职责关系如下：
 
 - `pcv-stage2-data-prep`：负责生成和验证 frame 1051 pilot 的 tile binary PLY 与 tile DRC 资产及 metadata；本仓库只读消费其 metadata 语义。
-- `pcv-stage2-allocation`：负责 Stage2 候选选择和 proxy pilot；本仓库未来输出的环境专属 `d_ms` 估计应作为 allocation 输入之一，但本阶段不接入。
+- `pcv-stage2-allocation`：负责 Stage2 候选选择和 proxy pilot；本仓库未来输出的环境专属 `d_ms` 估计应作为 allocation 输入之一，但当前阶段不接入。
 - 旧 `PointCloud_Benchmark`：只作为历史实现参考；其计时边界与本仓库冻结的第一版 `d_ms` 边界不同，不能直接复用为新测量契约。
 
 ## 正式输入资产范围
@@ -29,7 +29,7 @@
 - `python_windows_x64`；
 - `js_worker_browser_windows_x64`。
 
-三种环境不得混合为同一个 `d_ms`。每次 Stage2 实验只能选择一个明确环境配置，并使用该环境对应的候选级处理耗时估计值。具体编译器、Python 版本、库版本、浏览器版本、Draco runtime 与计时 API 均未在阶段 0A 冻结。
+三种环境不得混合为同一个 `d_ms`。每次 Stage2 实验只能选择一个明确环境配置，并使用该环境对应的候选级处理耗时估计值。具体编译器、Python 版本、库版本、浏览器版本、Draco runtime 与计时 API 均未冻结。
 
 ## 已冻结的第一版测量边界
 
@@ -56,20 +56,28 @@ colors: uint8[N, 3]
 d_hat_ms = f(environment, representation, candidate_metadata)
 ```
 
-阶段 0A 不拟合函数，不产生任何 `d_hat_ms` 数值，也不生成 benchmark 代码。
+当前阶段不拟合函数，不产生任何 `d_hat_ms` 数值，也不生成 benchmark 代码。
+
+## 阶段文档
+
+- [d_ms 测量契约](docs/MEASUREMENT_CONTRACT.zh-CN.md)：冻结第一版 `d_ms` 定义、计时边界、输入资产范围和 provenance 语义。
+- [阶段 0B 运行环境、采样计划与记录格式](docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md)：记录三类运行环境候选配置、Longdress pilot 抽样路线、三类记录字段草案和 allocation join 原则。
+- [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
+
+## Longdress pilot 路线
+
+第一版结果优先使用 Longdress 数据集快速形成环境专属 `d_hat_ms` 输入，为 `pcv-stage2-allocation` 实验提供可用依据。最快路径是从 `pcv-stage2-data-prep` 已有的 frame 1051 G128 tile binary PLY 与 DRC corpus metadata 出发，设计覆盖性抽样和直接测量计划。
+
+后续再扩展到其他数据集，用于验证模型泛化性和修正误差。若未来需要 Longdress 多帧样本，应单独决定由 data-prep 生成多帧 tile assets，还是由本 benchmark 仓库生成 ignored 本地临时样本；当前阶段不生成任何样本。
 
 ## reference/Decode_Worker.js
 
-`reference/Decode_Worker.js` 是 JavaScript Worker 处理路径的只读参考。它用于帮助界定未来 JS Worker 环境中的 PLY / DRC 路径和边界，不是本仓库要修改、优化或复制的实现来源。阶段 0A 已记录其 SHA-256，并确认本轮未修改。
+`reference/Decode_Worker.js` 是 JavaScript Worker 处理路径的只读参考。它用于帮助界定未来 JS Worker 环境中的 PLY / DRC 路径和边界，不是本仓库要修改、优化或复制的实现来源。阶段 0A 与 0B 均记录其 SHA-256，并确认本轮未修改。
 
 ## 目录职责
 
 - `reference/`：只读参考材料；当前仅保留研究者手动放入的 `Decode_Worker.js`。
-- `docs/`：中文契约与当前状态文档。
+- `docs/`：中文契约、计划与当前状态文档。
 - `.gitignore`：忽略未来可能产生的大型输出、构建产物、环境目录和本地配置。
 
-本阶段没有 `src/`、`tests/`、`scripts/`、`schemas/` 或 `configs/`，也没有 CMake、Python、Node.js、WASM、测试或绘图工程。
-
-## 后续高层路线
-
-下一阶段应先冻结每个目标环境的具体 runtime 与计时方法，再设计只读读取 metadata 的 benchmark 输入清单、覆盖性抽样策略、直接测量记录格式、模型标定记录格式和 allocation join 口径。正式实现前仍需保持 `measured`、`calibrated`、`derived`、`proxy` 与 `synthetic` 的 provenance 区分。
+当前没有 `src/`、`tests/`、`scripts/`、`schemas/` 或 `configs/`，也没有 CMake、Python、Node.js、WASM、测试或绘图工程。
