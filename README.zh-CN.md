@@ -62,6 +62,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 
 - [d_ms 测量契约](docs/MEASUREMENT_CONTRACT.zh-CN.md)：冻结第一版 `d_ms` 定义、计时边界、输入资产范围和 provenance 语义。
 - [阶段 0B 运行环境、采样计划与记录格式](docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md)：记录三类运行环境候选配置、Longdress pilot 抽样路线、三类记录字段草案和 allocation join 原则。
+- [阶段 0C 候选清单与抽样骨架](docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md)：记录 metadata inventory adapter、sampling planner、CLI、测试和真实 metadata 只读验证结果。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -81,3 +82,15 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - `.gitignore`：忽略未来可能产生的大型输出、构建产物、环境目录和本地配置。
 
 当前没有 `src/`、`tests/`、`scripts/`、`schemas/` 或 `configs/`，也没有 CMake、Python、Node.js、WASM、测试或绘图工程。
+
+## 阶段 0C 最小用法
+
+阶段 0C 新增的是 metadata-only 工具，不解析 PLY、不解码 DRC、不测量 `d_ms`。在本机可用如下命令从 data-prep metadata 生成 ignored 输出：
+
+```powershell
+$env:PYTHONPATH='src'
+python -m pcv_dms_benchmark.cli inventory --data-prep-root E:\Miunaaaa\0-work\code\pcv-stage2-data-prep --out outputs\phase0c_frame1051_inventory.json
+python -m pcv_dms_benchmark.cli sample-plan --inventory outputs\phase0c_frame1051_inventory.json --out outputs\phase0c_frame1051_sample_plan.json --max-tiles 5
+```
+
+`outputs/` 是本地生成结果目录，已由 `.gitignore` 忽略，不纳入版本库。

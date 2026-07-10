@@ -268,3 +268,13 @@ docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md
 ```
 
 该文档不改变本契约中已冻结的 `d_ms` 定义、计时起点、计时终点或输入资产范围。
+
+## 16. 阶段 0C 关联工具
+
+阶段 0C 新增 metadata-only 候选清单适配器与抽样计划骨架，说明见：
+
+```text
+docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md
+```
+
+这些工具只读取 JSON metadata 并生成 planning 输出，不解析 PLY、不解码 DRC、不产生 `d_ms` 测量值，也不改变本契约中已冻结的测量边界。

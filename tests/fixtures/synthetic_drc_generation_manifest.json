@@ -1,0 +1,89 @@
+{
+  "artifact_profile_id": "synthetic_drc_pdl_qp_v1",
+  "dataset_id": "synthetic_longdress",
+  "frame_id": 1051,
+  "grid_profile_id": "synthetic_g128",
+  "codec_id": "draco",
+  "point_cloud_flag": "-point_cloud",
+  "compression_level": 10,
+  "variants": [
+    {
+      "variant_id": "tile_small__pdl_0.2__cl10__qp8",
+      "tile_id": "tile_small",
+      "source_pdl": 0.2,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 8,
+      "source_point_count": 6,
+      "drc_file_size_bytes": 50,
+      "drc_relpath": "tiles/tile_small/pdl_0.2_cl10_qp8.drc",
+      "drc_sha256": "drc-small-p02-qp8"
+    },
+    {
+      "variant_id": "tile_small__pdl_0.2__cl10__qp10",
+      "tile_id": "tile_small",
+      "source_pdl": 0.2,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 10,
+      "source_point_count": 6,
+      "drc_file_size_bytes": 55,
+      "drc_relpath": "tiles/tile_small/pdl_0.2_cl10_qp10.drc",
+      "drc_sha256": "drc-small-p02-qp10"
+    },
+    {
+      "variant_id": "tile_small__pdl_0.6__cl10__qp12",
+      "tile_id": "tile_small",
+      "source_pdl": 0.6,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 12,
+      "source_point_count": 18,
+      "drc_file_size_bytes": 80,
+      "drc_relpath": "tiles/tile_small/pdl_0.6_cl10_qp12.drc",
+      "drc_sha256": "drc-small-p06-qp12"
+    },
+    {
+      "variant_id": "tile_mid__pdl_1.0__cl10__qp8",
+      "tile_id": "tile_mid",
+      "source_pdl": 1.0,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 8,
+      "source_point_count": 60,
+      "drc_file_size_bytes": 180,
+      "drc_relpath": "tiles/tile_mid/pdl_1.0_cl10_qp8.drc",
+      "drc_sha256": "drc-mid-p10-qp8"
+    },
+    {
+      "variant_id": "tile_mid__pdl_1.0__cl10__qp10",
+      "tile_id": "tile_mid",
+      "source_pdl": 1.0,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 10,
+      "source_point_count": 60,
+      "drc_file_size_bytes": 190,
+      "drc_relpath": "tiles/tile_mid/pdl_1.0_cl10_qp10.drc",
+      "drc_sha256": "drc-mid-p10-qp10"
+    },
+    {
+      "variant_id": "tile_mid__pdl_1.0__cl10__qp12",
+      "tile_id": "tile_mid",
+      "source_pdl": 1.0,
+      "codec_id": "draco",
+      "point_cloud_flag": "-point_cloud",
+      "compression_level": 10,
+      "qp": 12,
+      "source_point_count": 60,
+      "drc_file_size_bytes": 200,
+      "drc_relpath": "tiles/tile_mid/pdl_1.0_cl10_qp12.drc",
+      "drc_sha256": "drc-mid-p10-qp12"
+    }
+  ]
+}

@@ -272,3 +272,13 @@ derived record 不是逐候选直接 measured 结果。它必须能追溯到 cal
 - 不修改 `reference/Decode_Worker.js`；
 - 不创建任何 `d_ms` 测量结果文件；
 - 不创建 allocation 输入文件。
+
+## 9. 阶段 0C 衔接
+
+阶段 0C 已在阶段 0B 的计划基础上新增 metadata-only 候选清单适配器与抽样计划骨架，详见：
+
+```text
+docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md
+```
+
+该阶段只生成候选清单和抽样计划，不进行 PLY / DRC 内容解析、解码或 `d_ms` 测量。

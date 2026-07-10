@@ -1,0 +1,9 @@
+[project]
+name = "pcv-stage2-dms-benchmark"
+version = "0.0.0"
+description = "Metadata inventory and sampling plan utilities for Stage2 d_ms benchmark preparation."
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.unittest]
+start-directory = "tests"

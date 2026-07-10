@@ -1,0 +1,106 @@
+{
+  "artifact_profile_id": "synthetic_tilelocal_pdl_v1",
+  "dataset_id": "synthetic_longdress",
+  "frame_id": 1051,
+  "grid_profile_id": "synthetic_g128",
+  "tiles": [
+    {
+      "tile_id": "tile_small",
+      "is_empty": false,
+      "point_count": 30,
+      "quality_assets": [
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_small",
+          "target_pdl": 0.2,
+          "retained_point_count": 6,
+          "file_size_bytes": 100,
+          "relative_path": "tiles/tile_small/pdl_0.2.ply",
+          "sha256": "ply-small-p02",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        },
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_small",
+          "target_pdl": 0.6,
+          "retained_point_count": 18,
+          "file_size_bytes": 200,
+          "relative_path": "tiles/tile_small/pdl_0.6.ply",
+          "sha256": "ply-small-p06",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        },
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_small",
+          "target_pdl": 1.0,
+          "retained_point_count": 30,
+          "file_size_bytes": 300,
+          "relative_path": "tiles/tile_small/pdl_1.0.ply",
+          "sha256": "ply-small-p10",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_mid",
+      "is_empty": false,
+      "point_count": 60,
+      "quality_assets": [
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_mid",
+          "target_pdl": 0.2,
+          "retained_point_count": 12,
+          "file_size_bytes": 120,
+          "relative_path": "tiles/tile_mid/pdl_0.2.ply",
+          "sha256": "ply-mid-p02",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        },
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_mid",
+          "target_pdl": 1.0,
+          "retained_point_count": 60,
+          "file_size_bytes": 600,
+          "relative_path": "tiles/tile_mid/pdl_1.0.ply",
+          "sha256": "ply-mid-p10",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        }
+      ]
+    },
+    {
+      "tile_id": "tile_large",
+      "is_empty": false,
+      "point_count": 90,
+      "quality_assets": [
+        {
+          "dataset_id": "synthetic_longdress",
+          "frame_id": 1051,
+          "grid_profile_id": "synthetic_g128",
+          "tile_id": "tile_large",
+          "target_pdl": 0.4,
+          "retained_point_count": 36,
+          "file_size_bytes": 360,
+          "relative_path": "tiles/tile_large/pdl_0.4.ply",
+          "sampling_scope": "tile_local",
+          "sampling_method": "nested_prefix"
+        }
+      ]
+    }
+  ]
+}
