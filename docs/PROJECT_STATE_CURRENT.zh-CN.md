@@ -1,68 +1,57 @@
 # 当前项目状态
 
-更新日期：2026-07-13。本文档记录阶段 1B 完成后的本机真实状态，供后续接力使用。
+更新日期：2026-07-13。本文档记录阶段 1B.1 只读差异审查完成后的本机状态。
 
 ## 1. 项目与 Git 基线
 
-本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结基础契约，阶段 0C 已完成 800-candidate inventory 与抽样计划，阶段 1A 已完成 Python 真实测量，阶段 1B 已完成 provisional 模型标定与 frame1051 derived handoff。
+本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结基础契约，阶段 0C 已完成 frame1051 的 800-candidate inventory 与抽样计划，阶段 1A 已完成 Python 真实测量，阶段 1B 已完成 provisional 模型标定和 derived handoff。阶段 1B.1 对旧 Python benchmark 与当前结果的相反排序进行了只读审查。
 
-阶段 1B 开始时：
+阶段 1B.1 开始时：
 
 ```text
 E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark
 ## main...origin/main
-72236f3 feat: add Python pilot benchmark
+7610362 feat: calibrate Python d_ms pilot models
 ```
 
 远程 `origin` 指向 `https://github.com/CCX39/pcv-stage2-dms-benchmark.git`。本阶段不执行 push。
 
-## 2. 输入与环境
+## 2. 当前 Python measured 与 calibrated 状态
 
-Python 环境：CPython 3.13.0、numpy 2.5.1、plyfile 1.1.4、DracoPy 2.0.0，`environment_id = python_windows_x64`。
+环境为 CPython 3.13.0、numpy 2.5.1、plyfile 1.1.4、DracoPy 2.0.0，`environment_id = python_windows_x64`。
 
-输入 SHA-256：
+阶段 1A pilot 为 100/100 成功：PLY 25、DRC 75，覆盖 5 个 tile。磁盘读取位于计时外；两条路径都在计时内生成独立 `float32[N,3]` positions 与 `uint8[N,3]` colors；每候选 warmup 2、sample 5，以 p50 为阶段 1B 拟合目标。
 
-```text
-phase1a pilot 0591575D6558DA73E89A2634C0CFA996A385287DCB0F4F083EBF317CB2D06516
-inventory     7D5B0B658BDB75B2BB4B81359DDA3A46D4171F4FE28B388FE4C6F43DB8BFA915
-```
-
-pilot 审查通过：100/100 成功，PLY 25、DRC 75，5 个 tile，身份、provenance、正数值、点数一致性和 inventory join 均无错误。`target_statistic = p50_ms`。
-
-## 3. 标定实现与验证
-
-- `calibration.py`：严格审查、P0-P2 / D0-D3 模型、按 `tile_id` 留一交叉验证、误差指标、5% 简化选择规则和推荐判定。
-- `derived_export.py`：measured summary、calibration artifact 和 800-candidate derived handoff。
-- `cli.py`：新增 `python-calibrate`。
-- `test_calibration.py`、`test_derived_export.py`：覆盖分组无泄漏、拟合预测、模型选择、provenance 与 handoff 身份完整性。
-
-验证为 5 折 leave-one-tile-out，每折 4 个训练 tile、1 个完整验证 tile。模型不使用 `candidate_key`、`candidate_id`、`tile_id` 或数组位置作为特征。
-
-## 4. 选中模型
-
-PLY 选择 P1：
+阶段 1B 选中模型：
 
 ```text
-d_hat_ms = 0.15954514764960334
-           + 3.7770090745876392 * (point_count / 1000)
+PLY P1: d_hat_ms = 0.15954514764960334
+                     + 3.7770090745876392 * (point_count / 1000)
 normalized_mae = 0.007476571814053519
-recommended_for_allocation_pilot = true
-```
 
-DRC 选择 D1：
-
-```text
-d_hat_ms = -0.029712238641829095
-           + 0.23967649584133888 * (point_count / 1000)
+DRC D1: d_hat_ms = -0.029712238641829095
+                     + 0.23967649584133888 * (point_count / 1000)
 normalized_mae = 0.020813844203006367
-recommended_for_allocation_pilot = true
 ```
 
-两类在完整 inventory scope 上均产生有限正预测，没有做负值裁剪。详细候选模型指标、公式和选择理由见 `PHASE1B_PYTHON_CALIBRATION_AND_HANDOFF.zh-CN.md`。
+阶段 1B 的 grouped validation 和全 inventory 检查通过。审查未发现 ns/ms 换算、point count、RGB、缓存复用、p50 或 feature scale 错误。模型忠实反映当前 measured pilot，但其低误差只说明当前 5-tile 样本内关系稳定。
 
-## 5. 版本化交付
+## 3. 阶段 1B.1 审查结论
 
-已生成并纳入 Git：
+旧项目确有 DRC 慢于 PLY 的本地 CSV 证据，当前项目确有相反排序的 measured 证据。两套实验不具备直接可比性，关键差异包括：
+
+- 当前 PLY 使用 plyfile + `BytesIO`，旧 PLY 使用 Open3D path API。
+- 当前排除磁盘读取，旧项目把 PLY/DRC 文件读取包含在 parser timer 内。
+- 当前强制生成独立 canonical arrays；旧项目只到 backend arrays，没有统一 dtype/ownership 契约。
+- 当前资产是 612–35,548 点的 G128 tile；旧 Longdress 资产是 7,658–765,821 点的降采样 full-cloud。
+- 旧 DRC 显式组合 qc，当前 active profile 未显式 qc/qg。
+- 当前使用 warmup 2、sample 5、p50；旧项目无显式 warmup，实际 repeat 未写入 CSV，并用 mean。
+
+当前 PLY 路径在 `column_stack` 后执行显式 copy，DRC 路径没有等价 stack 中间步骤。这是可能影响相对耗时的直接代码事实，但不是当前 canonical 输出契约的实现错误。完整证据等级、结果范围和对照表见 `PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md`。
+
+## 4. Handoff 状态
+
+已纳入 Git 的交付仍为：
 
 ```text
 results/python_frame1051_measured_summary_v1.json
@@ -70,38 +59,50 @@ results/python_frame1051_calibration_v1.json
 handoff/python_frame1051_candidate_dms_v1.json
 ```
 
-measured summary 为 100 条且不含 raw samples；handoff 为 800 条，其中 PLY 200、DRC 600。800 个 `candidate_key` 唯一，800 个 `(tile_id, candidate_id)` 组合唯一，全部 `d_hat_ms` 有限且大于 0。
+handoff 覆盖 800 个候选，其中 PLY 200、DRC 600，使用 `provenance = derived`，不是 800 个逐候选 measured 结果。本轮未修改上述 JSON，也未改变其中阶段 1B 的内部判定字段。
 
-handoff 使用 `provenance = derived`，不是逐候选直接 measured。其 scope 为 `provisional_frame1051_python_pilot`，两类均不具备 final model、跨 frame 或跨数据集资格。
-
-## 6. 测试、外部仓库与 reference
-
-阶段 1B 实现后共 31 个 unittest。最终定向检查已执行：
-
-```powershell
-.venv\Scripts\python -m unittest discover
-git diff --check
-```
-
-两项均通过；三个版本化 JSON 也已完成重载、计数、唯一身份、正预测、provenance、raw-sample 排除和 grouped-validation 泄漏检查。
-
-外部仓库阶段 1B 开始状态：
+操作层面的当前状态为：
 
 ```text
-pcv-stage2-data-prep   ## main...origin/main
-pcv-stage2-allocation  ## master...origin/master
-PointCloud_Benchmark   ## main...origin/main
-                       ?? scripts/plot_time_vs_point_count_filtered.py
+review_status = review_pending
+allocation_integration_status = temporarily_hold_for_allocation_integration
 ```
 
-旧 benchmark 未跟踪脚本为既有状态。本轮不修改三个外部仓库，也不修改 `reference/Decode_Worker.js`；其基线 SHA-256 为：
+`recommended_for_allocation_pilot = true` 仅表示模型通过阶段 1B 的内部完整性与 normalized MAE 阈值，不代表已经完成与旧实验的公平性对齐。建议 allocation 在最小 apples-to-apples 实验完成前暂缓接入。
+
+## 5. 旧项目只读状态
+
+审查开始时：
+
+```text
+E:\Miunaaaa\0-work\code\PointCloud_Benchmark
+## main...origin/main
+?? scripts/plot_time_vs_point_count_filtered.py
+cb3a197 修改说明：readme更新
+```
+
+既有未跟踪脚本 `scripts/plot_time_vs_point_count_filtered.py` 未被修改。旧 benchmark、`pcv-stage2-allocation`、`pcv-stage2-data-prep` 均保持只读；本轮没有运行旧 benchmark、没有生成点云或新测量结果。
+
+## 6. Reference 与交付完整性
+
+`reference/Decode_Worker.js` 未修改，其阶段基线 SHA-256 为：
 
 ```text
 0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
 ```
 
-## 7. 当前限制与下一阶段
+阶段 1B.1 不修改 `results/`、`handoff/`、源代码、测试或依赖，只新增审查文档并更新中文状态入口。
 
-当前只完成单帧、5 个测量 tile、Python 环境的 provisional 标定。尚未完成 Longdress 多帧、其他数据集、C++、JavaScript、统计策略最终确认或论文级模型验证。
+## 7. 当前限制
 
-下一阶段可以将版本化 handoff 交给 allocation 做 provisional proxy 替换实验，但必须在 allocation 侧显式记录 calibration ID、环境与 scope；本仓库当前没有修改 allocation。并行研究路线应扩充 tile / frame 覆盖并重新做 grouped validation，后续再建立 C++、JavaScript 独立模型。
+- 只完成 Longdress frame1051、5 个测量 tile、Python 环境的 provisional 标定。
+- 尚未完成 Longdress 多帧、其他数据集、C++ 或 JavaScript 测量与模型。
+- 旧结果缺少实际 Python/Open3D/DracoPy/Draco 版本、repeat count、机器快照和受控 run manifest。
+- 当前留一 tile 验证不能回答 backend effect、boundary effect、asset-scale effect 或 output-conversion effect。
+- allocation 仓库尚未修改，且当前建议暂缓接入 handoff。
+
+## 8. 下一阶段建议
+
+下一阶段应先做小规模 2×2 对齐实验，而不是直接扩大 allocation 使用范围：在同一批 frame1051 tile、同一 payload 和同一点数上，对照当前 plyfile 与 legacy-equivalent Open3D PLY 路径，以及当前与旧 DRC 路径；每一路分别使用 legacy boundary 和 current canonical boundary。
+
+该实验应固定 runtime/backend 版本、warmup、sample count 与统计量，优先分离 backend、计时边界、资产尺度和输出转换影响。对齐完成后再决定恢复 provisional allocation 接入，或扩充 Longdress tile/frame 后重新标定。

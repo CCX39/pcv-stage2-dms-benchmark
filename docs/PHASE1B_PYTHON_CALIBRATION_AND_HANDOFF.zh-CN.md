@@ -116,4 +116,6 @@ allocation 后续应以 `candidate_key` 为主键，并同时核验 `dataset_id`
 
 当前模型只来自 Longdress frame1051 的 5 个测量 tile，使用 CPython 3.13.0、plyfile 1.1.4、DracoPy 2.0.0 和 numpy 2.5.1。尚未跨 frame、跨数据集、跨 Python runtime 或跨后端验证，也不能替代 C++ / JavaScript 环境模型。
 
-当前可以将 handoff 交给 allocation 做明确标注的 provisional 替换实验，但本仓库没有修改 allocation。若未来扩充 Longdress tile / frame 后误差显著变化，应重新标定；后续还需 C++、JavaScript 和多数据集验证，才能讨论最终模型与统计策略。
+阶段 1B 当时依据内部完整性与 grouped-validation 阈值，允许将 handoff 交给 allocation 做明确标注的 provisional 替换实验；本仓库没有修改 allocation。若未来扩充 Longdress tile / frame 后误差显著变化，应重新标定；后续还需 C++、JavaScript 和多数据集验证，才能讨论最终模型与统计策略。该使用建议已由下方阶段 1B.1 审查状态暂时覆盖。
+
+> 阶段 1B.1 后续审查：旧 `PointCloud_Benchmark` 与当前 measured 结果呈现相反的 PLY/DRC 排序。只读审查未发现当前单位、计时或 canonical 输出语义错误，但确认两套实验在 backend、边界、资产尺度和输出整理上不可直接比较。因此本文件和 JSON 中的内部推荐判定保留，allocation 操作状态暂记为 `review_pending` 与 `temporarily_hold_for_allocation_integration`。完整证据见 [阶段 1B.1 差异审查](PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)。

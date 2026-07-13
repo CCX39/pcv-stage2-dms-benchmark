@@ -65,6 +65,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - [阶段 0C 候选清单与抽样骨架](docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md)：记录 metadata inventory adapter、sampling planner、CLI、测试和真实 metadata 只读验证结果。
 - [阶段 1A Python pilot](docs/PHASE1A_PYTHON_PILOT.zh-CN.md)：记录 Python 进程内 PLY / DRC 后端、真实 smoke、100-candidate pilot 与结果适用边界。
 - [阶段 1B Python 标定与交付](docs/PHASE1B_PYTHON_CALIBRATION_AND_HANDOFF.zh-CN.md)：记录 pilot 审查、按 tile 分组验证、模型比较、公式、指标与 provisional handoff 限制。
+- [阶段 1B.1 旧 Python timing 差异审查](docs/PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)：对照旧项目与当前链路的 backend、边界、资产、结果和证据等级，并记录 handoff 暂缓接入状态。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -143,3 +144,5 @@ $env:PYTHONPATH='src'
 - `handoff/python_frame1051_candidate_dms_v1.json`。
 
 handoff 是由单帧、5 个测量 tile 标定模型生成的 `derived` provisional 数据，不是 800 个候选逐个直接 measured 的结果，也不具备最终模型资格。
+
+> 阶段 1B.1 审查状态：旧 Python benchmark 与当前结果的排序差异尚未完成 apples-to-apples 对齐。现有 handoff 保留其阶段 1B 内部判定，但操作状态为 `review_pending` / `temporarily_hold_for_allocation_integration`，建议 allocation 暂缓接入。详见 [阶段 1B.1 旧 Python timing 差异审查](docs/PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)。
