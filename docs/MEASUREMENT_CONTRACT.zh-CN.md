@@ -291,3 +291,16 @@ docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md
 - 第一版统一输出只包含 `positions: float32[N, 3]` 与 `colors: uint8[N, 3]`，normals 不属于本版输出。
 
 该实例化没有改变第 2 至第 4 节的测量边界。真实结果标记为 `measured`，但 `measurement_scope = longdress_frame1051_pilot`、`eligible_for_final_model = false`、`eligible_for_allocation = false`；必须经过后续验证与模型阶段，不能直接作为最终输入。
+
+## 18. 阶段 1B provisional 标定契约
+
+阶段 1B 仅针对 `python_windows_x64` 的 Longdress frame1051 provisional pilot 冻结：
+
+- `target_statistic = p50_ms`；
+- PLY 与 DRC 分别拟合，不混合为同一模型；
+- 验证使用按 `tile_id` 分组的留一 tile 交叉验证，同一 tile 的候选不得同时进入训练与验证；
+- 模型选择以五折平均 `mae_ms` 为主，差异不超过最佳值 5% 时选择特征更少的模型；
+- 只有所有 scope 预测有限且大于 0、normalized MAE 不超过 0.30、身份审查无错误时，才标记 `recommended_for_allocation_pilot = true`；
+- 候选级 `d_hat_ms` 必须标记 `provenance = derived`，不得描述为逐候选直接 measured。
+
+本轮选择 `p50_ms` 是因为每候选仅有 5 次正式测量，p50 对偶发抖动相对 mean 更稳健，且当前目的只是形成 frame1051 provisional 模型。该选择不冻结其他环境、后续多帧实验或最终 Stage2 的永久统计策略。

@@ -56,7 +56,7 @@ colors: uint8[N, 3]
 d_hat_ms = f(environment, representation, candidate_metadata)
 ```
 
-阶段 1A 已生成 Longdress frame 1051 的 Python 直接测量 pilot，但尚未拟合函数，不产生任何 `d_hat_ms`，也不接入 allocation。
+阶段 1A 已生成 Longdress frame 1051 的 Python 直接测量 pilot；阶段 1B 已拟合 provisional PLY / DRC 模型，并为 frame1051 全部候选生成 `derived d_hat_ms` handoff。allocation 仓库尚未修改。
 
 ## 阶段文档
 
@@ -64,6 +64,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - [阶段 0B 运行环境、采样计划与记录格式](docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md)：记录三类运行环境候选配置、Longdress pilot 抽样路线、三类记录字段草案和 allocation join 原则。
 - [阶段 0C 候选清单与抽样骨架](docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md)：记录 metadata inventory adapter、sampling planner、CLI、测试和真实 metadata 只读验证结果。
 - [阶段 1A Python pilot](docs/PHASE1A_PYTHON_PILOT.zh-CN.md)：记录 Python 进程内 PLY / DRC 后端、真实 smoke、100-candidate pilot 与结果适用边界。
+- [阶段 1B Python 标定与交付](docs/PHASE1B_PYTHON_CALIBRATION_AND_HANDOFF.zh-CN.md)：记录 pilot 审查、按 tile 分组验证、模型比较、公式、指标与 provisional handoff 限制。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -82,9 +83,11 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - `docs/`：中文契约、计划与当前状态文档。
 - `src/pcv_dms_benchmark/`：metadata planning 与 Python pilot 实现。
 - `tests/`：synthetic metadata、binary PLY 与 fake decoder 单元测试。
+- `results/`：版本化 measured summary 与 calibrated model artifact。
+- `handoff/`：供 allocation 后续 provisional 实验读取的版本化 derived 候选交付。
 - `.gitignore`：忽略测量输出、构建产物、环境目录和本地配置。
 
-当前没有 C++、JavaScript、浏览器、WASM、模型拟合或 allocation 接入工程。
+当前没有 C++、JavaScript、浏览器、WASM 或 allocation 接入工程；阶段 1B 模型仍未完成跨帧、跨数据集验证。
 
 ## 阶段 0C 最小用法
 
@@ -120,3 +123,23 @@ $env:PYTHONPATH='src'
 ```
 
 删除 `--smoke` 并将 `--out` 改为 `outputs\phase1a_python_pilot.json`，即可运行阶段 0C 计划中的 100 个候选。真实测量 JSON 留在 ignored `outputs/`，不得直接作为最终模型或 allocation 输入。
+
+## 阶段 1B 标定与交付
+
+```powershell
+$env:PYTHONPATH='src'
+.venv\Scripts\python -m pcv_dms_benchmark.cli python-calibrate `
+  --pilot outputs\phase1a_python_pilot.json `
+  --inventory outputs\phase0c_frame1051_inventory.json `
+  --measured-summary-out results\python_frame1051_measured_summary_v1.json `
+  --calibration-out results\python_frame1051_calibration_v1.json `
+  --handoff-out handoff\python_frame1051_candidate_dms_v1.json
+```
+
+版本化交付文件：
+
+- `results/python_frame1051_measured_summary_v1.json`；
+- `results/python_frame1051_calibration_v1.json`；
+- `handoff/python_frame1051_candidate_dms_v1.json`。
+
+handoff 是由单帧、5 个测量 tile 标定模型生成的 `derived` provisional 数据，不是 800 个候选逐个直接 measured 的结果，也不具备最终模型资格。

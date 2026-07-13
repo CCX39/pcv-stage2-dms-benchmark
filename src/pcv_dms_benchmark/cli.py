@@ -18,7 +18,7 @@ from pcv_dms_benchmark.sampling_plan import (
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="pcv-dms-benchmark",
-        description="Metadata-only inventory and sampling-plan utilities.",
+        description="Stage2 d_ms inventory, Python pilot, and calibration utilities.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -54,6 +54,21 @@ def main(argv: list[str] | None = None) -> int:
         help="Measure only the first planned PLY and DRC candidate.",
     )
 
+    calibration_parser = subparsers.add_parser(
+        "python-calibrate", help="Calibrate Python pilot models and export frame1051 handoff."
+    )
+    calibration_parser.add_argument("--pilot", required=True, help="Input measured pilot JSON.")
+    calibration_parser.add_argument("--inventory", required=True, help="Input inventory JSON.")
+    calibration_parser.add_argument(
+        "--measured-summary-out", required=True, help="Output measured summary JSON."
+    )
+    calibration_parser.add_argument(
+        "--calibration-out", required=True, help="Output calibrated model JSON."
+    )
+    calibration_parser.add_argument(
+        "--handoff-out", required=True, help="Output derived candidate handoff JSON."
+    )
+
     args = parser.parse_args(argv)
     if args.command == "inventory":
         inventory = _run_inventory(args)
@@ -67,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "python-pilot":
         return _run_python_pilot(args)
+    if args.command == "python-calibrate":
+        return _run_python_calibration(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
@@ -136,6 +153,51 @@ def _run_python_pilot(args: argparse.Namespace) -> int:
     print(f"failure_count={result['failure_count']}")
     print(f"status={result['status']}")
     return 0 if result["failure_count"] == 0 else 1
+
+
+def _run_python_calibration(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.calibration import calibrate_models
+    from pcv_dms_benchmark.derived_export import (
+        build_derived_handoff,
+        build_measured_summary,
+        sha256_file,
+        write_json,
+    )
+    from pcv_dms_benchmark.python_benchmark import load_json_object
+
+    pilot = load_json_object(args.pilot)
+    inventory = load_json_object(args.inventory)
+    pilot_sha256 = sha256_file(args.pilot)
+    inventory_sha256 = sha256_file(args.inventory)
+    calibration = calibrate_models(
+        pilot,
+        inventory,
+        source_pilot_sha256=pilot_sha256,
+        source_inventory_sha256=inventory_sha256,
+    )
+    measured_summary = build_measured_summary(pilot, source_pilot_sha256=pilot_sha256)
+    handoff = build_derived_handoff(
+        inventory,
+        calibration,
+        expected_representation_counts={"ply": 200, "drc": 600},
+    )
+    write_json(args.measured_summary_out, measured_summary)
+    write_json(args.calibration_out, calibration)
+    write_json(args.handoff_out, handoff)
+
+    for representation in ("ply", "drc"):
+        model = calibration["representation_models"][representation]
+        print(f"{representation}_selected_model={model['selected_model']}")
+        print(
+            f"{representation}_normalized_mae="
+            f"{model['cross_validation_metrics']['normalized_mae']:.9f}"
+        )
+        print(
+            f"{representation}_recommended_for_allocation_pilot="
+            f"{str(model['recommended_for_allocation_pilot']).lower()}"
+        )
+    print(f"candidate_count={handoff['candidate_count']}")
+    return 0
 
 
 if __name__ == "__main__":

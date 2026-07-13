@@ -1,4 +1,4 @@
-"""Utilities for d_ms benchmark metadata planning."""
+"""Utilities for d_ms metadata planning, measurement, and calibration."""
 
 __all__ = ["__version__"]
 

@@ -1,82 +1,91 @@
 # 当前项目状态
 
-更新日期：2026-07-13。本文档记录阶段 1A 完成后的本机真实状态，供后续接力使用。
+更新日期：2026-07-13。本文档记录阶段 1B 完成后的本机真实状态，供后续接力使用。
 
-## 1. 项目定位与阶段状态
+## 1. 项目与 Git 基线
 
-本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结测量边界、运行环境原则、Longdress 路线与记录语义；阶段 0C 已完成 metadata inventory 和 sampling plan；阶段 1A 已完成 Python 进程内 PLY / DRC 最小测量链路及 Longdress frame 1051 pilot。
+本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结基础契约，阶段 0C 已完成 800-candidate inventory 与抽样计划，阶段 1A 已完成 Python 真实测量，阶段 1B 已完成 provisional 模型标定与 frame1051 derived handoff。
 
-当前已有真实 `measured` pilot，但尚未拟合 calibrated 模型、生成 derived `d_hat_ms` 或接入 allocation。
-
-## 2. Git 基线
-
-本机仓库：
+阶段 1B 开始时：
 
 ```text
 E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark
-```
-
-阶段 1A 开始时状态：
-
-```text
 ## main...origin/main
-4c5d9c7 feat: add metadata inventory and sampling planner
+72236f3 feat: add Python pilot benchmark
 ```
 
-远程 `origin` 指向 `https://github.com/CCX39/pcv-stage2-dms-benchmark.git`。阶段 1A 提交后不执行 push。
+远程 `origin` 指向 `https://github.com/CCX39/pcv-stage2-dms-benchmark.git`。本阶段不执行 push。
 
-## 3. 阶段 1A 实现
+## 2. 输入与环境
 
-- `python_benchmark.py`：从 inventory 与 sample plan 以 `candidate_key` 定位候选，校验并预加载资产，调用 PLY / DRC 进程内后端，执行 warmup、重复测量与计时外输出校验。
-- `measurement_stats.py`：计算 `p50_ms` 与 `mean_ms`。
-- `cli.py`：新增 `python-pilot` 子命令与 `--smoke` 双格式子集。
-- `test_python_benchmark.py`：使用 synthetic binary PLY 和 fake DRC decoder 验证核心边界。
-- `PHASE1A_PYTHON_PILOT.zh-CN.md`：记录环境、后端、执行状态与适用限制。
+Python 环境：CPython 3.13.0、numpy 2.5.1、plyfile 1.1.4、DracoPy 2.0.0，`environment_id = python_windows_x64`。
 
-实现不调用 `draco_decoder` CLI，不把 open/read/stat、JSON 写盘或结果校验计入 `d_ms`。每轮创建新的 `positions: float32[N, 3]` 与 `colors: uint8[N, 3]`；normals 不属于第一版输出。
-
-## 4. Python 环境
-
-仓库本地 `.venv`：
+输入 SHA-256：
 
 ```text
-CPython 3.13.0
-numpy 2.5.1
-plyfile 1.1.4
-DracoPy 2.0.0
-timer: time.perf_counter_ns
+phase1a pilot 0591575D6558DA73E89A2634C0CFA996A385287DCB0F4F083EBF317CB2D06516
+inventory     7D5B0B658BDB75B2BB4B81359DDA3A46D4171F4FE28B388FE4C6F43DB8BFA915
 ```
 
-`.venv/` 被 git ignore。PLY 使用 `plyfile + BytesIO`；DRC 使用 `DracoPy.decode(bytes)` 进程内解码。
+pilot 审查通过：100/100 成功，PLY 25、DRC 75，5 个 tile，身份、provenance、正数值、点数一致性和 inventory join 均无错误。`target_statistic = p50_ms`。
 
-## 5. 真实执行状态
+## 3. 标定实现与验证
 
-阶段 0C inventory 重新生成后仍为 800 个候选；`max_tiles=5` sample plan 仍为 100 个候选，其中 PLY 25 个、DRC 75 个。
+- `calibration.py`：严格审查、P0-P2 / D0-D3 模型、按 `tile_id` 留一交叉验证、误差指标、5% 简化选择规则和推荐判定。
+- `derived_export.py`：measured summary、calibration artifact 和 800-candidate derived handoff。
+- `cli.py`：新增 `python-calibrate`。
+- `test_calibration.py`、`test_derived_export.py`：覆盖分组无泄漏、拟合预测、模型选择、provenance 与 handoff 身份完整性。
 
-双格式 smoke 成功，随后 100-candidate pilot 成功 100 个、失败 0 个。所有候选使用预热 2 次、测量 5 次，decoded point count 与 metadata 一致。项目文档不记录具体耗时，也不做 PLY / DRC 性能结论。
+验证为 5 折 leave-one-tile-out，每折 4 个训练 tile、1 个完整验证 tile。模型不使用 `candidate_key`、`candidate_id`、`tile_id` 或数组位置作为特征。
 
-真实输出位于：
+## 4. 选中模型
+
+PLY 选择 P1：
 
 ```text
-outputs/phase1a_python_smoke.json
-outputs/phase1a_python_pilot.json
+d_hat_ms = 0.15954514764960334
+           + 3.7770090745876392 * (point_count / 1000)
+normalized_mae = 0.007476571814053519
+recommended_for_allocation_pilot = true
 ```
 
-`outputs/` 被 git ignore，结果不纳入提交。记录标记为 `provenance = measured`、`measurement_scope = longdress_frame1051_pilot`，并明确 `eligible_for_final_model = false`、`eligible_for_allocation = false`。
+DRC 选择 D1：
 
-## 6. 测试状态
+```text
+d_hat_ms = -0.029712238641829095
+           + 0.23967649584133888 * (point_count / 1000)
+normalized_mae = 0.020813844203006367
+recommended_for_allocation_pilot = true
+```
 
-测试命令：
+两类在完整 inventory scope 上均产生有限正预测，没有做负值裁剪。详细候选模型指标、公式和选择理由见 `PHASE1B_PYTHON_CALIBRATION_AND_HANDOFF.zh-CN.md`。
+
+## 5. 版本化交付
+
+已生成并纳入 Git：
+
+```text
+results/python_frame1051_measured_summary_v1.json
+results/python_frame1051_calibration_v1.json
+handoff/python_frame1051_candidate_dms_v1.json
+```
+
+measured summary 为 100 条且不含 raw samples；handoff 为 800 条，其中 PLY 200、DRC 600。800 个 `candidate_key` 唯一，800 个 `(tile_id, candidate_id)` 组合唯一，全部 `d_hat_ms` 有限且大于 0。
+
+handoff 使用 `provenance = derived`，不是逐候选直接 measured。其 scope 为 `provisional_frame1051_python_pilot`，两类均不具备 final model、跨 frame 或跨数据集资格。
+
+## 6. 测试、外部仓库与 reference
+
+阶段 1B 实现后共 31 个 unittest。最终定向检查已执行：
 
 ```powershell
 .venv\Scripts\python -m unittest discover
+git diff --check
 ```
 
-阶段 1A 增加后共 19 个测试，覆盖阶段 0C metadata planning 与阶段 1A 测量核心语义。最终定向检查中测试与 `git diff --check` 均通过。
+两项均通过；三个版本化 JSON 也已完成重载、计数、唯一身份、正预测、provenance、raw-sample 排除和 grouped-validation 泄漏检查。
 
-## 7. 外部仓库与 reference
-
-阶段 1A 开始时只读状态：
+外部仓库阶段 1B 开始状态：
 
 ```text
 pcv-stage2-data-prep   ## main...origin/main
@@ -85,32 +94,14 @@ PointCloud_Benchmark   ## main...origin/main
                        ?? scripts/plot_time_vs_point_count_filtered.py
 ```
 
-旧 benchmark 的未跟踪脚本为既有状态，本轮未修改。`reference/Decode_Worker.js` 的阶段 1A 前 SHA-256 为：
+旧 benchmark 未跟踪脚本为既有状态。本轮不修改三个外部仓库，也不修改 `reference/Decode_Worker.js`；其基线 SHA-256 为：
 
 ```text
 0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
 ```
 
-最终检查需确认 hash 不变，且三个外部仓库状态与上述基线一致。
+## 7. 当前限制与下一阶段
 
-## 8. 已冻结事项
+当前只完成单帧、5 个测量 tile、Python 环境的 provisional 标定。尚未完成 Longdress 多帧、其他数据集、C++、JavaScript、统计策略最终确认或论文级模型验证。
 
-- Python pilot 环境为 `python_windows_x64`，与 C++ / JavaScript 结果隔离。
-- 计时起点为 payload 已驻留内存，终点为统一 CPU 点云数组生成完毕。
-- PLY 正式输入只接受 Stage2 binary little-endian tile PLY；raw ASCII full-cloud PLY 不进入正式测量。
-- DRC 必须进程内解码，不允许用 CLI 子进程替代。
-- `candidate_key` 是 benchmark 内部唯一主键；不以 `candidate_id` 或数组位置单独定位。
-- 第一版使用 `warmup_count = 2`、`sample_count = 5`，保留 raw samples、p50 与 mean。
-- 当前 pilot 是直接测量，但不具备最终模型或 allocation 使用资格。
-
-## 9. 尚未完成与下一阶段
-
-尚未完成：
-
-- Python PLY / DRC 的简单可解释模型与留出验证；
-- `p50`、`mean` 或其他统计量作为 Stage2 最终输入的选择；
-- calibrated / derived 记录落盘格式与 allocation join；
-- Longdress 多帧及其他数据集泛化验证；
-- C++ 与 JavaScript 独立测量实现。
-
-下一阶段建议先分别拟合 Python PLY 与 DRC 的简单模型，报告留出误差和适用范围；在研究者确认统计策略与验证结果前，不生成 allocation 输入。
+下一阶段可以将版本化 handoff 交给 allocation 做 provisional proxy 替换实验，但必须在 allocation 侧显式记录 calibration ID、环境与 scope；本仓库当前没有修改 allocation。并行研究路线应扩充 tile / frame 覆盖并重新做 grouped validation，后续再建立 C++、JavaScript 独立模型。
