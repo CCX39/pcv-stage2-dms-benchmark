@@ -282,3 +282,9 @@ allocation_integration_status = temporarily_hold_for_allocation_integration
 - 未确认旧 Open3D `.numpy()` 与 DracoPy/NumPy `asarray` 的实际 copy 行为。
 - 未确认旧结果的 CPU、OS、Python、Open3D、DracoPy 与 Draco executable 版本。
 - 当前 handoff 的内部拟合状态与 allocation 操作状态必须分开理解；前者保留，后者暂缓。
+
+## 16. 阶段 1B.2 后续结果
+
+阶段 1B.2 已按本审查建议完成 4-candidate PLY backend 最小对齐。两条路径输出均通过 canonical point count、dtype、shape、坐标和 RGB 校验；Open3D path API 即使包含磁盘读取，4/4 个候选仍比当前 plyfile 内存路径快超过 2 倍，达到 `strong_support_for_open3d_backend`。
+
+该结果强化了“PLY backend/output-conversion effect 是顺序反转主要因素”的解释，但 Open3D path API 仍不是正式内存驻留 `d_ms`。当前 handoff 继续保持 `review_pending` 与 `temporarily_hold_for_allocation_integration`。完整实验记录见 `PHASE1B2_PLY_BACKEND_ALIGNMENT.zh-CN.md`。

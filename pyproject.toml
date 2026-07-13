@@ -9,5 +9,8 @@ dependencies = [
     "plyfile==1.1.4",
 ]
 
+[project.optional-dependencies]
+ply-backend-alignment = ["open3d==0.19.0"]
+
 [tool.unittest]
 start-directory = "tests"

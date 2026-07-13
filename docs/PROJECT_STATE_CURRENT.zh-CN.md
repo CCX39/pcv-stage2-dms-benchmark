@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新日期：2026-07-13。本文档记录阶段 1B.1 只读差异审查完成后的本机状态。
+更新日期：2026-07-13。本文档记录阶段 1B.2 PLY backend 最小对齐实验完成后的本机状态。
 
 ## 1. 项目与 Git 基线
 
@@ -68,7 +68,7 @@ review_status = review_pending
 allocation_integration_status = temporarily_hold_for_allocation_integration
 ```
 
-`recommended_for_allocation_pilot = true` 仅表示模型通过阶段 1B 的内部完整性与 normalized MAE 阈值，不代表已经完成与旧实验的公平性对齐。建议 allocation 在最小 apples-to-apples 实验完成前暂缓接入。
+`recommended_for_allocation_pilot = true` 仅表示模型通过阶段 1B 的内部完整性与 normalized MAE 阈值。阶段 1B.2 已完成最小 PLY backend 诊断，但尚未冻结符合正式内存边界的新 PLY profile，因此 allocation 仍暂缓接入。
 
 ## 5. 旧项目只读状态
 
@@ -91,18 +91,57 @@ cb3a197 修改说明：readme更新
 0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
 ```
 
-阶段 1B.1 不修改 `results/`、`handoff/`、源代码、测试或依赖，只新增审查文档并更新中文状态入口。
+阶段 1B.2 仍未修改 `results/`、`handoff/` 或 reference；本轮只新增诊断代码、最小测试、可选 Open3D 依赖声明和中文文档。
 
 ## 7. 当前限制
 
 - 只完成 Longdress frame1051、5 个测量 tile、Python 环境的 provisional 标定。
 - 尚未完成 Longdress 多帧、其他数据集、C++ 或 JavaScript 测量与模型。
 - 旧结果缺少实际 Python/Open3D/DracoPy/Draco 版本、repeat count、机器快照和受控 run manifest。
-- 当前留一 tile 验证不能回答 backend effect、boundary effect、asset-scale effect 或 output-conversion effect。
+- 阶段 1B.2 已在 4 个候选上隔离 PLY backend/output-conversion 差异，但尚未验证正式内存边界、更多 tile/frame 或运行时泛化。
 - allocation 仓库尚未修改，且当前建议暂缓接入 handoff。
 
-## 8. 下一阶段建议
+## 8. 阶段 1B.1 原对齐建议
 
-下一阶段应先做小规模 2×2 对齐实验，而不是直接扩大 allocation 使用范围：在同一批 frame1051 tile、同一 payload 和同一点数上，对照当前 plyfile 与 legacy-equivalent Open3D PLY 路径，以及当前与旧 DRC 路径；每一路分别使用 legacy boundary 和 current canonical boundary。
+阶段 1B.1 建议先做小规模对齐而不是直接扩大 allocation 使用范围：在同一批 frame1051 tile 上对照当前 plyfile 与 legacy-equivalent Open3D PLY 路径，并进一步隔离 boundary effect。
 
-该实验应固定 runtime/backend 版本、warmup、sample count 与统计量，优先分离 backend、计时边界、资产尺度和输出转换影响。对齐完成后再决定恢复 provisional allocation 接入，或扩充 Longdress tile/frame 后重新标定。
+阶段 1B.2 已完成其中最小 PLY backend 诊断，结果见下一节；Open3D 正式内存输入边界及更大范围复核仍待下一阶段完成。
+
+## 9. 阶段 1B.2 PLY backend 对齐
+
+本阶段新增 `ply-backend-align` 诊断命令，仅选择阶段 0C 计划中 PDL 1.0 point count 最小和最大的 tile，并分别测 PDL 0.2/1.0，共 4 个 binary PLY：
+
+```text
+gx_0_gy_4_gz_0  PDL 0.2     612 points
+gx_0_gy_4_gz_0  PDL 1.0   3,062 points
+gx_2_gy_1_gz_1  PDL 0.2   7,109 points
+gx_2_gy_1_gz_1  PDL 1.0  35,548 points
+```
+
+诊断运行环境为本地 ignored `.venv/open3d310`：Python 3.10.20、Open3D 0.19.0、plyfile 1.1.4、numpy 2.2.6。Open3D 0.19.0 无 CPython 3.13 wheel，因此没有修改现有阶段 1A `.venv` 或外部 conda 环境。两条 backend 在同一 3.10 进程内比较。
+
+每候选、每路径 warmup 2、sample 5。plyfile 从已驻留 payload 到 canonical arrays；Open3D 使用 path API，并把磁盘读取、parse 和 canonical 转换全部计时。四项 point count、shape、dtype、独立 ownership、坐标和 RGB 校验全部通过。
+
+Open3D/plyfile p50 比值依次约为：
+
+```text
+0.0215
+0.0127
+0.0108
+0.0146
+```
+
+4/4 候选均满足 Open3D 至少快 2 倍的规则，结论为 `strong_support_for_open3d_backend`。这强支持当前 plyfile 路径是 Python PLY 耗时偏高的主要因素，并建议下一阶段冻结新的 Open3D Python PLY execution profile。
+
+Open3D path API 包含磁盘读取，不符合当前正式 `d_ms` 的内存驻留起点，因此本轮数值只属于诊断结果，不能直接替换阶段 1B 模型或交给 allocation。原始结果保存在 ignored `outputs/phase1b2_ply_backend_alignment.json`，未纳入 Git。
+
+## 10. 当前 handoff 与下一阶段
+
+阶段 1B 的 `results/python_frame1051_calibration_v1.json` 和 `handoff/python_frame1051_candidate_dms_v1.json` 未修改。当前状态继续为：
+
+```text
+review_status = review_pending
+allocation_integration_status = temporarily_hold_for_allocation_integration
+```
+
+allocation 继续暂缓接入。下一阶段应先明确 Open3D 的正式内存输入方案或经研究者确认版本化调整 Python PLY profile，再只重跑必要的 PLY pilot 候选、重新标定 PLY 模型并生成新版本 handoff；不得把本轮 path-API 诊断值直接视为正式 `d_ms`。

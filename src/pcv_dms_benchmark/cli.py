@@ -69,6 +69,19 @@ def main(argv: list[str] | None = None) -> int:
         "--handoff-out", required=True, help="Output derived candidate handoff JSON."
     )
 
+    alignment_parser = subparsers.add_parser(
+        "ply-backend-align", help="Compare plyfile and Open3D on four planned PLY candidates."
+    )
+    alignment_parser.add_argument("--inventory", required=True, help="Input inventory JSON.")
+    alignment_parser.add_argument("--sample-plan", required=True, help="Input sample plan JSON.")
+    alignment_parser.add_argument("--pilot", required=True, help="Existing phase1A pilot JSON.")
+    alignment_parser.add_argument(
+        "--data-prep-root", required=True, help="Root of pcv-stage2-data-prep."
+    )
+    alignment_parser.add_argument("--out", required=True, help="Output alignment JSON.")
+    alignment_parser.add_argument("--warmup", type=int, default=2, help="Warmup calls per path.")
+    alignment_parser.add_argument("--samples", type=int, default=5, help="Measured calls per path.")
+
     args = parser.parse_args(argv)
     if args.command == "inventory":
         inventory = _run_inventory(args)
@@ -84,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_python_pilot(args)
     if args.command == "python-calibrate":
         return _run_python_calibration(args)
+    if args.command == "ply-backend-align":
+        return _run_ply_backend_alignment(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
@@ -198,6 +213,34 @@ def _run_python_calibration(args: argparse.Namespace) -> int:
         )
     print(f"candidate_count={handoff['candidate_count']}")
     return 0
+
+
+def _run_ply_backend_alignment(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.ply_backend_alignment import (
+        run_ply_backend_alignment,
+        select_alignment_candidates,
+        write_alignment_result,
+    )
+    from pcv_dms_benchmark.python_benchmark import load_json_object
+
+    inventory = load_json_object(args.inventory)
+    sample_plan = load_json_object(args.sample_plan)
+    pilot = load_json_object(args.pilot)
+    candidates = select_alignment_candidates(inventory, sample_plan)
+    result = run_ply_backend_alignment(
+        candidates,
+        pilot,
+        data_prep_root=args.data_prep_root,
+        warmup_count=args.warmup,
+        sample_count=args.samples,
+    )
+    write_alignment_result(args.out, result)
+    print(f"alignment_out={Path(args.out)}")
+    print(f"candidate_count={result['candidate_count']}")
+    print(f"success_count={result['success_count']}")
+    print(f"failure_count={result['failure_count']}")
+    print(f"conclusion={result['conclusion']}")
+    return 0 if result["failure_count"] == 0 else 1
 
 
 if __name__ == "__main__":
