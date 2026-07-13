@@ -278,3 +278,16 @@ docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md
 ```
 
 这些工具只读取 JSON metadata 并生成 planning 输出，不解析 PLY、不解码 DRC、不产生 `d_ms` 测量值，也不改变本契约中已冻结的测量边界。
+
+## 17. 阶段 1A Python pilot 实例化
+
+阶段 1A 在 `python_windows_x64` 候选环境中完成第一版真实直接测量链路：
+
+- CPython 3.13.0；
+- `time.perf_counter_ns` 计时；
+- PLY 后端为 `plyfile 1.1.4 + numpy 2.5.1`；
+- DRC 后端为进程内 `DracoPy 2.0.0 + numpy 2.5.1`，不调用 decoder CLI；
+- 每个候选预热 2 次、正式测量 5 次；
+- 第一版统一输出只包含 `positions: float32[N, 3]` 与 `colors: uint8[N, 3]`，normals 不属于本版输出。
+
+该实例化没有改变第 2 至第 4 节的测量边界。真实结果标记为 `measured`，但 `measurement_scope = longdress_frame1051_pilot`、`eligible_for_final_model = false`、`eligible_for_allocation = false`；必须经过后续验证与模型阶段，不能直接作为最终输入。

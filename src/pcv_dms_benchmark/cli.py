@@ -39,6 +39,21 @@ def main(argv: list[str] | None = None) -> int:
         help="Plan identifier to store in output JSON.",
     )
 
+    pilot_parser = subparsers.add_parser(
+        "python-pilot", help="Measure selected PLY/DRC candidates in the Python environment."
+    )
+    pilot_parser.add_argument("--inventory", required=True, help="Input inventory JSON path.")
+    pilot_parser.add_argument("--sample-plan", required=True, help="Input sampling plan JSON path.")
+    pilot_parser.add_argument("--data-prep-root", required=True, help="Root of pcv-stage2-data-prep.")
+    pilot_parser.add_argument("--out", required=True, help="Output measured pilot JSON path.")
+    pilot_parser.add_argument("--warmup", type=int, default=2, help="Warmup calls per candidate.")
+    pilot_parser.add_argument("--samples", type=int, default=5, help="Measured calls per candidate.")
+    pilot_parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Measure only the first planned PLY and DRC candidate.",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "inventory":
         inventory = _run_inventory(args)
@@ -50,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
         write_sampling_plan(args.out, plan)
         _print_plan_summary(plan, Path(args.out))
         return 0
+    if args.command == "python-pilot":
+        return _run_python_pilot(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
@@ -93,6 +110,32 @@ def _print_plan_summary(plan: dict, out_path: Path) -> None:
     print(f"selected_candidate_count={summary.get('selected_candidate_count', 0)}")
     print(f"ply_candidate_count={summary.get('ply_candidate_count', 0)}")
     print(f"drc_candidate_count={summary.get('drc_candidate_count', 0)}")
+
+
+def _run_python_pilot(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.python_benchmark import (
+        load_json_object,
+        run_python_pilot,
+        select_candidates,
+        write_pilot_result,
+    )
+
+    inventory = load_json_object(args.inventory)
+    sample_plan = load_json_object(args.sample_plan)
+    candidates = select_candidates(inventory, sample_plan, smoke=args.smoke)
+    result = run_python_pilot(
+        candidates,
+        data_prep_root=args.data_prep_root,
+        warmup_count=args.warmup,
+        sample_count=args.samples,
+    )
+    write_pilot_result(args.out, result)
+    print(f"pilot_out={Path(args.out)}")
+    print(f"candidate_count={result['candidate_count']}")
+    print(f"success_count={result['success_count']}")
+    print(f"failure_count={result['failure_count']}")
+    print(f"status={result['status']}")
+    return 0 if result["failure_count"] == 0 else 1
 
 
 if __name__ == "__main__":

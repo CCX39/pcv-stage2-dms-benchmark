@@ -1,256 +1,116 @@
 # 当前项目状态
 
-更新日期：2026-07-10。本文档用于阶段 0C 之后的接力，记录本机真实仓库状态、当前代码能力、只读验证结果、已冻结事项和仍未冻结事项。
+更新日期：2026-07-13。本文档记录阶段 1A 完成后的本机真实状态，供后续接力使用。
 
-## 1. 当前项目定位
+## 1. 项目定位与阶段状态
 
-本仓库位于 Stage2 allocation 与 data-prep 之间，用于准备候选级端侧处理耗时 `d_ms` benchmark。阶段 0A 已冻结第一版 `d_ms` 语义与边界；阶段 0B 已冻结运行环境候选配置、Longdress pilot 抽样路线和三类记录格式草案；阶段 0C 新增 metadata-only 候选清单适配器与抽样计划骨架。
+本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结测量边界、运行环境原则、Longdress 路线与记录语义；阶段 0C 已完成 metadata inventory 和 sampling plan；阶段 1A 已完成 Python 进程内 PLY / DRC 最小测量链路及 Longdress frame 1051 pilot。
 
-当前仍没有 PLY 内容解析、DRC 解码、真实 `d_ms` 测量、耗时模型、measured / calibrated / derived 结果数据或 allocation 接入。
+当前已有真实 `measured` pilot，但尚未拟合 calibrated 模型、生成 derived `d_hat_ms` 或接入 allocation。
 
-## 2. Git 状态
+## 2. Git 基线
 
-本机仓库路径：
+本机仓库：
 
 ```text
 E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark
 ```
 
-阶段 0C 开始时真实分支与 upstream：
+阶段 1A 开始时状态：
 
 ```text
 ## main...origin/main
+4c5d9c7 feat: add metadata inventory and sampling planner
 ```
 
-当前远程：
+远程 `origin` 指向 `https://github.com/CCX39/pcv-stage2-dms-benchmark.git`。阶段 1A 提交后不执行 push。
+
+## 3. 阶段 1A 实现
+
+- `python_benchmark.py`：从 inventory 与 sample plan 以 `candidate_key` 定位候选，校验并预加载资产，调用 PLY / DRC 进程内后端，执行 warmup、重复测量与计时外输出校验。
+- `measurement_stats.py`：计算 `p50_ms` 与 `mean_ms`。
+- `cli.py`：新增 `python-pilot` 子命令与 `--smoke` 双格式子集。
+- `test_python_benchmark.py`：使用 synthetic binary PLY 和 fake DRC decoder 验证核心边界。
+- `PHASE1A_PYTHON_PILOT.zh-CN.md`：记录环境、后端、执行状态与适用限制。
+
+实现不调用 `draco_decoder` CLI，不把 open/read/stat、JSON 写盘或结果校验计入 `d_ms`。每轮创建新的 `positions: float32[N, 3]` 与 `colors: uint8[N, 3]`；normals 不属于第一版输出。
+
+## 4. Python 环境
+
+仓库本地 `.venv`：
 
 ```text
-origin  https://github.com/CCX39/pcv-stage2-dms-benchmark.git (fetch)
-origin  https://github.com/CCX39/pcv-stage2-dms-benchmark.git (push)
+CPython 3.13.0
+numpy 2.5.1
+plyfile 1.1.4
+DracoPy 2.0.0
+timer: time.perf_counter_ns
 ```
 
-阶段 0C 开始时 HEAD：
+`.venv/` 被 git ignore。PLY 使用 `plyfile + BytesIO`；DRC 使用 `DracoPy.decode(bytes)` 进程内解码。
+
+## 5. 真实执行状态
+
+阶段 0C inventory 重新生成后仍为 800 个候选；`max_tiles=5` sample plan 仍为 100 个候选，其中 PLY 25 个、DRC 75 个。
+
+双格式 smoke 成功，随后 100-candidate pilot 成功 100 个、失败 0 个。所有候选使用预热 2 次、测量 5 次，decoded point count 与 metadata 一致。项目文档不记录具体耗时，也不做 PLY / DRC 性能结论。
+
+真实输出位于：
 
 ```text
-046f96d docs: define runtime sampling and record plan
+outputs/phase1a_python_smoke.json
+outputs/phase1a_python_pilot.json
 ```
 
-阶段 0C 本轮提交主题为：
-
-```text
-feat: add metadata inventory and sampling planner
-```
-
-本轮不执行 `git push`。
-
-## 3. 阶段 0C 已完成事项
-
-- 新增最小 Python 项目骨架；
-- 新增 metadata inventory adapter；
-- 新增 sampling plan generator；
-- 新增 CLI 子命令 `inventory` 与 `sample-plan`；
-- 新增 synthetic JSON fixtures；
-- 新增 unittest 覆盖候选规范化、稳定 key、DRC codec params、缺失 metadata warning 和抽样计划覆盖；
-- 新增 `docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md`；
-- 更新 README、测量契约、阶段 0B 计划文档和当前状态文档；
-- 对真实 data-prep frame1051 metadata 做一次只读验证；
-- 确认 `reference/Decode_Worker.js` 未变化。
-
-## 4. 新增代码与职责
-
-`src/pcv_dms_benchmark/metadata_inventory.py`：
-
-- 读取 PLY tile index JSON 与 DRC generation manifest JSON；
-- 将 PLY / DRC metadata 规范化为统一 candidate record；
-- 生成稳定 `candidate_key`，不依赖数组位置；
-- 只使用 metadata 中已有的 file size 与 hash 字段；
-- 字段缺失时记录 warning 或 `null`，不编造值；
-- 不打开 PLY / DRC 文件内容。
-
-`src/pcv_dms_benchmark/sampling_plan.py`：
-
-- 从 inventory 中按 tile 聚合候选；
-- 基于 tile 最大 `point_count` 做确定性 bucket selection；
-- 对选中 tile 默认保留所有 PLY PDL 与所有 DRC PDL × QP；
-- 输出 sampling plan JSON；
-- 不进行任何测量。
-
-`src/pcv_dms_benchmark/cli.py`：
-
-- `inventory`：从 data-prep root 或显式 manifest path 生成候选清单；
-- `sample-plan`：从候选清单生成抽样计划；
-- 输出路径由调用者指定，推荐写入 ignored `outputs/`。
-
-## 5. 候选清单与抽样计划输出语义
-
-inventory 与 sampling plan 都是 `metadata_planning`，不是 measured / calibrated / derived 结果。
-
-candidate record 主要字段包括：
-
-- `dataset_id`
-- `frame_id`
-- `grid_profile_id`
-- `tile_id`
-- `candidate_id`
-- `candidate_key`
-- `representation`
-- `file_format`
-- `source_pdl`
-- `pdl_ratio`
-- `codec`
-- `codec_profile`
-- `codec_params`
-- `point_count`
-- `file_size_bytes`
-- `asset_ref`
-- `asset_sha256`
-- `source_manifest`
-- `provenance`
-- `status`
-- `warning_codes`
-
-sampling plan 主要字段包括：
-
-- `plan_id`
-- `source_inventory`
-- `selection_policy`
-- `selected_tiles`
-- `selected_candidates`
-- `coverage_summary`
-- `warnings`
-
-`selected_candidates` 引用 `candidate_key` / `candidate_id`，并保留少量摘要字段供人工审查。
+`outputs/` 被 git ignore，结果不纳入提交。记录标记为 `provenance = measured`、`measurement_scope = longdress_frame1051_pilot`，并明确 `eligible_for_final_model = false`、`eligible_for_allocation = false`。
 
 ## 6. 测试状态
 
 测试命令：
 
-```text
-python -m unittest discover
-```
-
-结果：
-
-```text
-Ran 12 tests
-OK
-```
-
-测试只依赖 `tests/fixtures/` 下的极小 synthetic JSON，不依赖真实 data-prep 仓库和真实点云文件。
-
-## 7. 真实 metadata 只读验证结果
-
-执行命令：
-
 ```powershell
-$env:PYTHONPATH='src'
-python -m pcv_dms_benchmark.cli inventory --data-prep-root E:\Miunaaaa\0-work\code\pcv-stage2-data-prep --out outputs\phase0c_frame1051_inventory.json
-python -m pcv_dms_benchmark.cli sample-plan --inventory outputs\phase0c_frame1051_inventory.json --out outputs\phase0c_frame1051_sample_plan.json --max-tiles 5
+.venv\Scripts\python -m unittest discover
 ```
 
-inventory 摘要：
+阶段 1A 增加后共 19 个测试，覆盖阶段 0C metadata planning 与阶段 1A 测量核心语义。最终定向检查中测试与 `git diff --check` 均通过。
+
+## 7. 外部仓库与 reference
+
+阶段 1A 开始时只读状态：
 
 ```text
-candidate_count=800
-ply_candidate_count=200
-drc_candidate_count=600
-tile_count=40
+pcv-stage2-data-prep   ## main...origin/main
+pcv-stage2-allocation  ## master...origin/master
+PointCloud_Benchmark   ## main...origin/main
+                       ?? scripts/plot_time_vs_point_count_filtered.py
 ```
 
-sample plan 摘要：
-
-```text
-selected_tile_count=5
-selected_candidate_count=100
-ply_candidate_count=25
-drc_candidate_count=75
-```
-
-验证只读取 JSON metadata，没有读取 PLY / DRC 文件内容。生成文件位于 `outputs/`，该目录已被 `.gitignore` 忽略，不纳入 git。
-
-## 8. 外部仓库只读状态
-
-`pcv-stage2-data-prep`：
-
-```text
-status ## main...origin/main
-```
-
-`pcv-stage2-allocation`：
-
-```text
-status ## master...origin/master
-```
-
-旧 `PointCloud_Benchmark`：
-
-```text
-status ## main...origin/main
-       ?? scripts/plot_time_vs_point_count_filtered.py
-```
-
-旧 benchmark 的未跟踪脚本是既有状态，本轮未修改。
-
-## 9. reference/Decode_Worker.js
-
-SHA-256：
+旧 benchmark 的未跟踪脚本为既有状态，本轮未修改。`reference/Decode_Worker.js` 的阶段 1A 前 SHA-256 为：
 
 ```text
 0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C
 ```
 
-阶段 0A、0B、0C 哈希一致。本轮未修改该文件。
+最终检查需确认 hash 不变，且三个外部仓库状态与上述基线一致。
 
-## 10. 当前可用输入资产线索
+## 8. 已冻结事项
 
-原始 Longdress raw ASCII full-cloud PLY 路径存在：
+- Python pilot 环境为 `python_windows_x64`，与 C++ / JavaScript 结果隔离。
+- 计时起点为 payload 已驻留内存，终点为统一 CPU 点云数组生成完毕。
+- PLY 正式输入只接受 Stage2 binary little-endian tile PLY；raw ASCII full-cloud PLY 不进入正式测量。
+- DRC 必须进程内解码，不允许用 CLI 子进程替代。
+- `candidate_key` 是 benchmark 内部唯一主键；不以 `candidate_id` 或数组位置单独定位。
+- 第一版使用 `warmup_count = 2`、`sample_count = 5`，保留 raw samples、p50 与 mean。
+- 当前 pilot 是直接测量，但不具备最终模型或 allocation 使用资格。
 
-```text
-E:\Miunaaaa\0-work\data\8i\longdress\longdress\Ply
-```
+## 9. 尚未完成与下一阶段
 
-该路径只作为来源背景。本阶段未读取大文件内容。
+尚未完成：
 
-data-prep 当前可用的正式候选资产 metadata 线索：
+- Python PLY / DRC 的简单可解释模型与留出验证；
+- `p50`、`mean` 或其他统计量作为 Stage2 最终输入的选择；
+- calibrated / derived 记录落盘格式与 allocation join；
+- Longdress 多帧及其他数据集泛化验证；
+- C++ 与 JavaScript 独立测量实现。
 
-- Stage2 tile binary PLY index：`artifacts/pilot_1051_g128_tilelocal_pdl5_v1/frame_1051_tile_index.json`；
-- Stage2 tile DRC manifest：`artifacts/pilot_1051_g128_drc_pdl5_qp3_cl10_v1/generation_manifest.json`。
-
-运行时代码通过 CLI 参数传入 data-prep root 或 manifest path，不硬编码本机绝对路径。
-
-## 11. 当前没有的内容
-
-当前仓库没有：
-
-- PLY 文件内容 parser；
-- DRC decoder；
-- Draco 调用；
-- C++ benchmark 工程；
-- JavaScript / 浏览器 / WASM benchmark 工程；
-- 真实 `d_ms` 测量结果；
-- measured / calibrated / derived 结果数据；
-- allocation 输入文件；
-- 点云资产复制、移动、生成或重新编码产物。
-
-## 12. 已冻结事项
-
-- 候选清单 adapter 只读 JSON metadata；
-- `candidate_key` 由显式身份字段组成，不依赖数组位置；
-- PLY / DRC 候选统一到 metadata planning record；
-- DRC `codec_params` 只记录显式可见的 point-cloud mode、`cl`、`qp`，不编造 `qc` / `qg`；
-- 第一版 sampling plan 默认按 tile bucket 选 tile，并保留选中 tile 的所有 PLY PDL 与 DRC PDL × QP；
-- `outputs/` 作为本地生成结果目录，不提交。
-
-## 13. 仍未冻结事项
-
-- 正式测量 runner 的实现方式；
-- 是否对真实 asset path 做 file existence / stat 校验，以及何时做；
-- 具体抽样数量和人工审查流程；
-- 环境依赖版本、计时 API、warmup / sample 策略；
-- 真实 measured record / calibrated record / derived record 的文件格式；
-- 多帧 Longdress 样本由 data-prep 生成还是 benchmark ignored 临时生成；
-- normals 是否纳入 JS `d_ms`。
-
-## 14. 下一阶段建议
-
-下一阶段可以先做 metadata-only 人工审查报告，检查 inventory 与 sampling plan 的覆盖性；也可以进入测量 runner 设计，但在实现前必须冻结 runtime 版本、计时 API、warmup / sample 策略、异常处理和输出 layout。任何测量 runner 都必须继续排除磁盘读取、网络下载、Worker 消息传输、GPU upload 和播放级调度。
+下一阶段建议先分别拟合 Python PLY 与 DRC 的简单模型，报告留出误差和适用范围；在研究者确认统计策略与验证结果前，不生成 allocation 输入。

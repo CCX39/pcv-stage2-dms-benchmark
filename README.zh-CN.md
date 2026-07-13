@@ -29,7 +29,7 @@
 - `python_windows_x64`；
 - `js_worker_browser_windows_x64`。
 
-三种环境不得混合为同一个 `d_ms`。每次 Stage2 实验只能选择一个明确环境配置，并使用该环境对应的候选级处理耗时估计值。具体编译器、Python 版本、库版本、浏览器版本、Draco runtime 与计时 API 均未冻结。
+三种环境不得混合为同一个 `d_ms`。每次 Stage2 实验只能选择一个明确环境配置，并使用该环境对应的候选级处理耗时估计值。阶段 1A 已固定 Python pilot 的实际运行时与后端；C++、JavaScript 以及未来正式测量环境仍需分别冻结。
 
 ## 已冻结的第一版测量边界
 
@@ -56,13 +56,14 @@ colors: uint8[N, 3]
 d_hat_ms = f(environment, representation, candidate_metadata)
 ```
 
-当前阶段不拟合函数，不产生任何 `d_hat_ms` 数值，也不生成 benchmark 代码。
+阶段 1A 已生成 Longdress frame 1051 的 Python 直接测量 pilot，但尚未拟合函数，不产生任何 `d_hat_ms`，也不接入 allocation。
 
 ## 阶段文档
 
 - [d_ms 测量契约](docs/MEASUREMENT_CONTRACT.zh-CN.md)：冻结第一版 `d_ms` 定义、计时边界、输入资产范围和 provenance 语义。
 - [阶段 0B 运行环境、采样计划与记录格式](docs/PHASE0B_RUNTIME_SAMPLING_AND_RECORD_PLAN.zh-CN.md)：记录三类运行环境候选配置、Longdress pilot 抽样路线、三类记录字段草案和 allocation join 原则。
 - [阶段 0C 候选清单与抽样骨架](docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md)：记录 metadata inventory adapter、sampling planner、CLI、测试和真实 metadata 只读验证结果。
+- [阶段 1A Python pilot](docs/PHASE1A_PYTHON_PILOT.zh-CN.md)：记录 Python 进程内 PLY / DRC 后端、真实 smoke、100-candidate pilot 与结果适用边界。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -79,9 +80,11 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 
 - `reference/`：只读参考材料；当前仅保留研究者手动放入的 `Decode_Worker.js`。
 - `docs/`：中文契约、计划与当前状态文档。
-- `.gitignore`：忽略未来可能产生的大型输出、构建产物、环境目录和本地配置。
+- `src/pcv_dms_benchmark/`：metadata planning 与 Python pilot 实现。
+- `tests/`：synthetic metadata、binary PLY 与 fake decoder 单元测试。
+- `.gitignore`：忽略测量输出、构建产物、环境目录和本地配置。
 
-当前没有 `src/`、`tests/`、`scripts/`、`schemas/` 或 `configs/`，也没有 CMake、Python、Node.js、WASM、测试或绘图工程。
+当前没有 C++、JavaScript、浏览器、WASM、模型拟合或 allocation 接入工程。
 
 ## 阶段 0C 最小用法
 
@@ -94,3 +97,26 @@ python -m pcv_dms_benchmark.cli sample-plan --inventory outputs\phase0c_frame105
 ```
 
 `outputs/` 是本地生成结果目录，已由 `.gitignore` 忽略，不纳入版本库。
+
+## 阶段 1A 最小用法
+
+在仓库本地环境安装已声明依赖：
+
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\python -m pip install -e .
+$env:PYTHONPATH='src'
+```
+
+先运行一个 PLY 与一个 DRC 的双格式 smoke：
+
+```powershell
+.venv\Scripts\python -m pcv_dms_benchmark.cli python-pilot `
+  --inventory outputs\phase0c_frame1051_inventory.json `
+  --sample-plan outputs\phase0c_frame1051_sample_plan.json `
+  --data-prep-root E:\Miunaaaa\0-work\code\pcv-stage2-data-prep `
+  --out outputs\phase1a_python_smoke.json `
+  --warmup 2 --samples 5 --smoke
+```
+
+删除 `--smoke` 并将 `--out` 改为 `outputs\phase1a_python_pilot.json`，即可运行阶段 0C 计划中的 100 个候选。真实测量 JSON 留在 ignored `outputs/`，不得直接作为最终模型或 allocation 输入。
