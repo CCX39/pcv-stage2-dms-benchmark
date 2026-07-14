@@ -67,6 +67,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - [阶段 1B Python 标定与交付](docs/PHASE1B_PYTHON_CALIBRATION_AND_HANDOFF.zh-CN.md)：记录 pilot 审查、按 tile 分组验证、模型比较、公式、指标与 provisional handoff 限制。
 - [阶段 1B.1 旧 Python timing 差异审查](docs/PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)：对照旧项目与当前链路的 backend、边界、资产、结果和证据等级，并记录 handoff 暂缓接入状态。
 - [阶段 1B.2 PLY backend 最小对齐实验](docs/PHASE1B2_PLY_BACKEND_ALIGNMENT.zh-CN.md)：用 4 个候选对照 plyfile 与 Open3D，记录正确性、边界限制和 backend 切换建议。
+- [阶段 1B.3 Open3D 内存 PLY 与 Python v2 审查](docs/PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md)：记录 from-bytes Windows wheel blocker、双格式 smoke 和未生成 v2 交付的原因。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -149,3 +150,5 @@ handoff 是由单帧、5 个测量 tile 标定模型生成的 `derived` provisio
 > 阶段 1B.1 审查状态：旧 Python benchmark 与当前结果的排序差异尚未完成 apples-to-apples 对齐。现有 handoff 保留其阶段 1B 内部判定，但操作状态为 `review_pending` / `temporarily_hold_for_allocation_integration`，建议 allocation 暂缓接入。详见 [阶段 1B.1 旧 Python timing 差异审查](docs/PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)。
 
 > 阶段 1B.2 状态：4-candidate 正确性全部通过，诊断结果强支持将 Open3D 作为下一版 Python PLY backend 候选；Open3D path API 仍不符合正式内存驻留边界，当前 handoff 继续暂缓接入。
+
+> 阶段 1B.3 状态：Open3D 0.19.0 Windows wheel 的 `read_point_cloud_from_bytes(..., format="ply")` 对 synthetic 与真实 PLY 均返回空点云。PLY smoke 失败，100-candidate pilot、v2 calibration 与 v2 handoff 均未生成；当前没有 ready 的 Python allocation profile。

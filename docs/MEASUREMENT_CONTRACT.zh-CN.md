@@ -304,3 +304,22 @@ docs/PHASE0C_METADATA_INVENTORY_AND_SAMPLING.zh-CN.md
 - 候选级 `d_hat_ms` 必须标记 `provenance = derived`，不得描述为逐候选直接 measured。
 
 本轮选择 `p50_ms` 是因为每候选仅有 5 次正式测量，p50 对偶发抖动相对 mean 更稳健，且当前目的只是形成 frame1051 provisional 模型。该选择不冻结其他环境、后续多帧实验或最终 Stage2 的永久统计策略。
+
+## 19. 阶段 1B.3 Open3D 内存 PLY profile 状态
+
+阶段 1B.3 候选 environment 为：
+
+```text
+python310_open3d019_dracopy200_windows_x64
+Python 3.10.20
+Open3D 0.19.0
+DracoPy 2.0.0
+numpy 2.2.6
+time.perf_counter_ns
+```
+
+候选 PLY processor 的契约仍严格保持 payload-resident 起点，并只允许 `read_point_cloud_from_bytes(payload, format="ply")`；Open3D path API 只属于阶段 1B.2 诊断，不能成为正式 `d_ms`。颜色转换候选规则为 `round(clip(colors, 0, 1) * 255) -> uint8`，输出不含 normals。
+
+当前 Windows wheel 虽暴露 from-bytes API，但对 synthetic 与真实 binary PLY 均返回空点云并报告 unknown format。双格式 smoke 未通过，因此该 environment 目前是 blocked candidate profile，不是当前推荐或已冻结的正式 Python profile。阶段 1A 的 plyfile profile 继续作为历史 measured 证据保留，但已不建议用于新的 allocation pilot。
+
+在 capability smoke 成功并完成同环境 PLY/DRC 100-candidate 重测前，不得生成或使用 Python v2 calibration/handoff，也不得把 Python 3.10 PLY 与 Python 3.13 DRC 拼接。

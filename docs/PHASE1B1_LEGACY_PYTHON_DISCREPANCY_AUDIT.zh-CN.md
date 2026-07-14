@@ -288,3 +288,7 @@ allocation_integration_status = temporarily_hold_for_allocation_integration
 阶段 1B.2 已按本审查建议完成 4-candidate PLY backend 最小对齐。两条路径输出均通过 canonical point count、dtype、shape、坐标和 RGB 校验；Open3D path API 即使包含磁盘读取，4/4 个候选仍比当前 plyfile 内存路径快超过 2 倍，达到 `strong_support_for_open3d_backend`。
 
 该结果强化了“PLY backend/output-conversion effect 是顺序反转主要因素”的解释，但 Open3D path API 仍不是正式内存驻留 `d_ms`。当前 handoff 继续保持 `review_pending` 与 `temporarily_hold_for_allocation_integration`。完整实验记录见 `PHASE1B2_PLY_BACKEND_ALIGNMENT.zh-CN.md`。
+
+## 17. 阶段 1B.3 后续状态
+
+阶段 1B.3 尝试以 Open3D 0.19.0 `read_point_cloud_from_bytes` 保持正式内存边界，但当前 Windows wheel 对 PLY format 返回空点云。双格式 smoke 中 DRC 成功、PLY 失败，因此没有运行 100-candidate pilot 或生成 v2 handoff。该 blocker 不推翻 1B.2 的 backend 诊断，但说明“path API 很快”不能直接推出“当前 wheel 的 memory API 可用”。allocation 继续 `review_pending`。

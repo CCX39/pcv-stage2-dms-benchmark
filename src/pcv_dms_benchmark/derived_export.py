@@ -22,7 +22,10 @@ def sha256_file(path: str | Path) -> str:
 
 
 def build_measured_summary(
-    pilot: dict[str, Any], *, source_pilot_sha256: str
+    pilot: dict[str, Any],
+    *,
+    source_pilot_sha256: str,
+    delivery_version: str | None = None,
 ) -> dict[str, Any]:
     records = []
     for result in pilot["results"]:
@@ -43,7 +46,7 @@ def build_measured_summary(
                 "measurement_scope": result["measurement_scope"],
             }
         )
-    return {
+    summary = {
         "measured_summary_schema_version": "1.0.0",
         "source_pilot_sha256": source_pilot_sha256,
         "environment_id": pilot["environment_id"],
@@ -52,6 +55,11 @@ def build_measured_summary(
         "provenance": "measured",
         "records": records,
     }
+    if delivery_version is not None:
+        summary["delivery_version"] = delivery_version
+    if pilot.get("environment_snapshot") is not None:
+        summary["environment_snapshot"] = pilot["environment_snapshot"]
+    return summary
 
 
 def build_derived_handoff(
@@ -59,6 +67,11 @@ def build_derived_handoff(
     calibration: dict[str, Any],
     *,
     expected_representation_counts: dict[str, int] | None = None,
+    handoff_id: str = "python_frame1051_candidate_dms_v1",
+    allocation_use_scope: str = "provisional_frame1051_python_pilot",
+    limitations: list[str] | None = None,
+    delivery_version: str | None = None,
+    allocation_integration_status: str | None = None,
 ) -> dict[str, Any]:
     candidates = inventory.get("candidates")
     if not isinstance(candidates, list):
@@ -119,9 +132,9 @@ def build_derived_handoff(
 
     derived_candidates.sort(key=lambda item: item["candidate_key"])
     _validate_candidate_identity(derived_candidates, expected_count=len(candidates))
-    return {
+    artifact = {
         "handoff_schema_version": "1.0.0",
-        "handoff_id": "python_frame1051_candidate_dms_v1",
+        "handoff_id": handoff_id,
         "environment_id": calibration["environment_id"],
         "dataset_id": calibration["dataset_id"],
         "frame_id": calibration["frame_id"],
@@ -131,11 +144,12 @@ def build_derived_handoff(
         "candidate_count": len(derived_candidates),
         "representation_status": representation_status,
         "provenance": "derived",
-        "allocation_use_scope": "provisional_frame1051_python_pilot",
+        "allocation_use_scope": allocation_use_scope,
         "eligible_for_final_model": False,
         "cross_dataset_validated": False,
         "cross_frame_validated": False,
-        "limitations": [
+        "limitations": limitations
+        or [
             "derived from one Longdress frame and five measured tiles",
             "not cross-frame or cross-dataset validated",
             "environment-specific to the phase 1A Python runtime and backends",
@@ -143,6 +157,11 @@ def build_derived_handoff(
         ],
         "candidates": derived_candidates,
     }
+    if delivery_version is not None:
+        artifact["delivery_version"] = delivery_version
+    if allocation_integration_status is not None:
+        artifact["allocation_integration_status"] = allocation_integration_status
+    return artifact
 
 
 def write_json(path: str | Path, payload: dict[str, Any]) -> None:

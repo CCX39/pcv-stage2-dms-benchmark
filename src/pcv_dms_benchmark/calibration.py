@@ -74,7 +74,13 @@ MODEL_SPECS = {
 }
 
 
-def audit_pilot(pilot: dict[str, Any], inventory: dict[str, Any]) -> dict[str, Any]:
+def audit_pilot(
+    pilot: dict[str, Any],
+    inventory: dict[str, Any],
+    *,
+    expected_environment_id: str = "python_windows_x64",
+    expected_measurement_scope: str = "longdress_frame1051_pilot",
+) -> dict[str, Any]:
     errors: list[str] = []
     results = pilot.get("results")
     inventory_candidates = inventory.get("candidates")
@@ -85,11 +91,11 @@ def audit_pilot(pilot: dict[str, Any], inventory: dict[str, Any]) -> dict[str, A
 
     expected_top_level = {
         "status": "success",
-        "environment_id": "python_windows_x64",
+        "environment_id": expected_environment_id,
         "candidate_count": 100,
         "success_count": 100,
         "failure_count": 0,
-        "measurement_scope": "longdress_frame1051_pilot",
+        "measurement_scope": expected_measurement_scope,
         "provenance": "measured",
         "eligible_for_final_model": False,
         "eligible_for_allocation": False,
@@ -128,7 +134,7 @@ def audit_pilot(pilot: dict[str, Any], inventory: dict[str, Any]) -> dict[str, A
             errors.append(f"{prefix}.status must be success")
         if record.get("provenance") != "measured":
             errors.append(f"{prefix}.provenance must be measured")
-        if record.get("measurement_scope") != "longdress_frame1051_pilot":
+        if record.get("measurement_scope") != expected_measurement_scope:
             errors.append(f"{prefix}.measurement_scope is invalid")
         if record.get("eligible_for_final_model") is not False:
             errors.append(f"{prefix}.eligible_for_final_model must be false")
@@ -162,8 +168,19 @@ def calibrate_models(
     *,
     source_pilot_sha256: str,
     source_inventory_sha256: str,
+    calibration_id: str = CALIBRATION_ID,
+    expected_environment_id: str = "python_windows_x64",
+    expected_measurement_scope: str = "longdress_frame1051_pilot",
+    allocation_use_scope: str = "provisional_frame1051_python_pilot",
+    profile_limitation: str = "specific to CPython 3.13.0 and the phase 1A Python backends",
+    delivery_version: str | None = None,
 ) -> dict[str, Any]:
-    audit = audit_pilot(pilot, inventory)
+    audit = audit_pilot(
+        pilot,
+        inventory,
+        expected_environment_id=expected_environment_id,
+        expected_measurement_scope=expected_measurement_scope,
+    )
     inventory_candidates = inventory["candidates"]
     measured_records = pilot["results"]
     identity = _inventory_identity(inventory_candidates)
@@ -194,6 +211,7 @@ def calibrate_models(
             recommended=recommended,
             predictions_valid=predictions_valid,
             normalized_mae=normalized_mae,
+            profile_limitation=profile_limitation,
         )
         representation_models[representation] = {
             "representation": representation,
@@ -214,7 +232,7 @@ def calibrate_models(
                 "representation": representation,
             },
             "recommended_for_allocation_pilot": recommended,
-            "allocation_use_scope": "provisional_frame1051_python_pilot",
+            "allocation_use_scope": allocation_use_scope,
             "eligible_for_final_model": False,
             "cross_dataset_validated": False,
             "cross_frame_validated": False,
@@ -222,9 +240,9 @@ def calibrate_models(
             "provenance": "calibrated",
         }
 
-    return {
+    artifact = {
         "calibration_schema_version": "1.0.0",
-        "calibration_id": CALIBRATION_ID,
+        "calibration_id": calibration_id,
         "environment_id": pilot["environment_id"],
         "dataset_id": identity["dataset_id"],
         "frame_id": identity["frame_id"],
@@ -244,6 +262,9 @@ def calibrate_models(
         "representation_models": representation_models,
         "provenance": "calibrated",
     }
+    if delivery_version is not None:
+        artifact["delivery_version"] = delivery_version
+    return artifact
 
 
 def evaluate_model(
@@ -465,11 +486,12 @@ def _representation_limitations(
     recommended: bool,
     predictions_valid: bool,
     normalized_mae: float,
+    profile_limitation: str,
 ) -> list[str]:
     limitations = [
         "calibrated from one Longdress frame and five measured tiles",
         "not cross-frame or cross-dataset validated",
-        "specific to CPython 3.13.0 and the phase 1A Python backends",
+        profile_limitation,
         f"applies only to frame1051 {representation} candidates covered by the active metadata profile",
     ]
     if not predictions_valid:

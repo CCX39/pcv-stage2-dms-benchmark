@@ -81,6 +81,24 @@ class PythonBenchmarkTest(unittest.TestCase):
         with self.assertRaisesRegex(PythonBenchmarkError, "binary little-endian"):
             parse_binary_ply(payload)
 
+    def test_empty_point_cloud_is_rejected_outside_processor_timing(self) -> None:
+        payload = binary_ply_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "asset.ply").write_bytes(payload)
+            result = measure_candidate(
+                candidate("asset.ply", len(payload)),
+                data_prep_root=root,
+                warmup_count=0,
+                sample_count=1,
+                processor=lambda _: (
+                    np.empty((0, 3), dtype=np.float32),
+                    np.empty((0, 3), dtype=np.uint8),
+                ),
+            )
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("at least one point", result["error"])
+
     def test_candidate_key_uniquely_locates_inventory_record(self) -> None:
         inventory = {
             "candidates": [

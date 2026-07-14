@@ -119,3 +119,5 @@ allocation 后续应以 `candidate_key` 为主键，并同时核验 `dataset_id`
 阶段 1B 当时依据内部完整性与 grouped-validation 阈值，允许将 handoff 交给 allocation 做明确标注的 provisional 替换实验；本仓库没有修改 allocation。若未来扩充 Longdress tile / frame 后误差显著变化，应重新标定；后续还需 C++、JavaScript 和多数据集验证，才能讨论最终模型与统计策略。该使用建议已由下方阶段 1B.1 审查状态暂时覆盖。
 
 > 阶段 1B.1 后续审查：旧 `PointCloud_Benchmark` 与当前 measured 结果呈现相反的 PLY/DRC 排序。只读审查未发现当前单位、计时或 canonical 输出语义错误，但确认两套实验在 backend、边界、资产尺度和输出整理上不可直接比较。因此本文件和 JSON 中的内部推荐判定保留，allocation 操作状态暂记为 `review_pending` 与 `temporarily_hold_for_allocation_integration`。完整证据见 [阶段 1B.1 差异审查](PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)。
+
+> 阶段 1B.3 状态：v1 现标记为 `historical_plyfile_profile`、`superseded_for_allocation_pilot`、`retained_for_audit`，内容不改。Open3D from-bytes PLY smoke 因 Windows wheel unknown-format/空点云失败，v2 未生成，allocation 继续 `review_pending`。详见 [阶段 1B.3 文档](PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md)。

@@ -21,6 +21,7 @@ MEASUREMENT_BOUNDARY = (
     "and colors uint8[N,3]"
 )
 Processor = Callable[[bytes], tuple[np.ndarray, np.ndarray]]
+BackendInfo = tuple[str, str]
 
 
 class PythonBenchmarkError(ValueError):
@@ -155,6 +156,11 @@ def run_python_pilot(
     sample_count: int = 5,
     run_id: str | None = None,
     processor_overrides: dict[str, Processor] | None = None,
+    backend_info_overrides: dict[str, BackendInfo] | None = None,
+    environment_id: str = ENVIRONMENT_ID,
+    measurement_boundary: str = MEASUREMENT_BOUNDARY,
+    measurement_scope: str = "longdress_frame1051_pilot",
+    environment_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if warmup_count < 0:
         raise PythonBenchmarkError("warmup_count must be non-negative")
@@ -162,6 +168,7 @@ def run_python_pilot(
         raise PythonBenchmarkError("sample_count must be positive")
 
     processors = processor_overrides or {}
+    backend_infos = backend_info_overrides or {}
     drc_backend_error: str | None = None
     if any(item.get("representation") == "drc" for item in candidates) and "drc" not in processors:
         try:
@@ -174,7 +181,14 @@ def run_python_pilot(
         representation = candidate.get("representation")
         if representation == "drc" and drc_backend_error:
             results.append(
-                _failure_record(candidate, warmup_count, sample_count, drc_backend_error)
+                _failure_record(
+                    candidate,
+                    warmup_count,
+                    sample_count,
+                    drc_backend_error,
+                    backend_info=backend_infos.get("drc"),
+                    measurement_scope=measurement_scope,
+                )
             )
             continue
         processor = processors.get(str(representation)) or _processor_for(str(representation))
@@ -185,16 +199,18 @@ def run_python_pilot(
                 warmup_count=warmup_count,
                 sample_count=sample_count,
                 processor=processor,
+                backend_info=backend_infos.get(str(representation)),
+                measurement_scope=measurement_scope,
             )
         )
 
     success_count = sum(item["status"] == "success" for item in results)
     failure_count = len(results) - success_count
-    return {
+    result = {
         "run_id": run_id or _default_run_id(),
-        "environment_id": ENVIRONMENT_ID,
+        "environment_id": environment_id,
         "timer_api": "time.perf_counter_ns",
-        "measurement_boundary": MEASUREMENT_BOUNDARY,
+        "measurement_boundary": measurement_boundary,
         "candidate_count": len(results),
         "success_count": success_count,
         "failure_count": failure_count,
@@ -206,11 +222,14 @@ def run_python_pilot(
             else "partial_failure"
         ),
         "provenance": "measured",
-        "measurement_scope": "longdress_frame1051_pilot",
+        "measurement_scope": measurement_scope,
         "eligible_for_final_model": False,
         "eligible_for_allocation": False,
         "results": results,
     }
+    if environment_snapshot is not None:
+        result["environment_snapshot"] = environment_snapshot
+    return result
 
 
 def measure_candidate(
@@ -222,8 +241,16 @@ def measure_candidate(
     processor: Processor,
     read_bytes: Callable[[Path], bytes] | None = None,
     clock_ns: Callable[[], int] = time.perf_counter_ns,
+    backend_info: BackendInfo | None = None,
+    measurement_scope: str = "longdress_frame1051_pilot",
 ) -> dict[str, Any]:
-    record = _base_record(candidate, warmup_count, sample_count)
+    record = _base_record(
+        candidate,
+        warmup_count,
+        sample_count,
+        backend_info=backend_info,
+        measurement_scope=measurement_scope,
+    )
     try:
         asset_path = _resolve_asset_path(data_prep_root, candidate.get("asset_ref"))
         actual_size = asset_path.stat().st_size
@@ -329,6 +356,8 @@ def _validate_point_cloud(
         raise PythonBenchmarkError("positions must have shape [N, 3]")
     if colors.shape != positions.shape:
         raise PythonBenchmarkError("colors must have shape [N, 3]")
+    if positions.shape[0] <= 0:
+        raise PythonBenchmarkError("point cloud must contain at least one point")
     if not positions.flags.owndata or not colors.flags.owndata:
         raise PythonBenchmarkError("positions and colors must own their memory")
     if expected_point_count is not None and positions.shape[0] != int(expected_point_count):
@@ -338,11 +367,16 @@ def _validate_point_cloud(
 
 
 def _base_record(
-    candidate: dict[str, Any], warmup_count: int, sample_count: int
+    candidate: dict[str, Any],
+    warmup_count: int,
+    sample_count: int,
+    *,
+    backend_info: BackendInfo | None = None,
+    measurement_scope: str = "longdress_frame1051_pilot",
 ) -> dict[str, Any]:
     representation = candidate.get("representation")
     codec_params = candidate.get("codec_params") or {}
-    backend_name, backend_version = _backend_info(str(representation))
+    backend_name, backend_version = backend_info or _backend_info(str(representation))
     return {
         "candidate_key": candidate.get("candidate_key"),
         "candidate_id": candidate.get("candidate_id"),
@@ -361,16 +395,28 @@ def _base_record(
         "warmup_count": warmup_count,
         "sample_count": sample_count,
         "provenance": "measured",
-        "measurement_scope": "longdress_frame1051_pilot",
+        "measurement_scope": measurement_scope,
         "eligible_for_final_model": False,
         "eligible_for_allocation": False,
     }
 
 
 def _failure_record(
-    candidate: dict[str, Any], warmup_count: int, sample_count: int, error: str
+    candidate: dict[str, Any],
+    warmup_count: int,
+    sample_count: int,
+    error: str,
+    *,
+    backend_info: BackendInfo | None = None,
+    measurement_scope: str = "longdress_frame1051_pilot",
 ) -> dict[str, Any]:
-    record = _base_record(candidate, warmup_count, sample_count)
+    record = _base_record(
+        candidate,
+        warmup_count,
+        sample_count,
+        backend_info=backend_info,
+        measurement_scope=measurement_scope,
+    )
     record.update(
         {
             "decoded_point_count": None,

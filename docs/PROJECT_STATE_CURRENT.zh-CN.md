@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新日期：2026-07-13。本文档记录阶段 1B.2 PLY backend 最小对齐实验完成后的本机状态。
+更新日期：2026-07-14。本文档记录阶段 1B.3 Open3D 内存 PLY capability smoke 后的本机状态。
 
 ## 1. 项目与 Git 基线
 
@@ -145,3 +145,68 @@ allocation_integration_status = temporarily_hold_for_allocation_integration
 ```
 
 allocation 继续暂缓接入。下一阶段应先明确 Open3D 的正式内存输入方案或经研究者确认版本化调整 Python PLY profile，再只重跑必要的 PLY pilot 候选、重新标定 PLY 模型并生成新版本 handoff；不得把本轮 path-API 诊断值直接视为正式 `d_ms`。
+
+## 11. 阶段 1B.3 实现与环境
+
+本阶段新增 Open3D from-bytes 候选 processor 和 `python-v2-pilot` / `python-v2-calibrate` CLI，参数化复用现有 runner、grouped calibration 与 exporter。正式 processor 只接收内存 bytes，不调用 path API、不创建临时文件；PLY header 必须为 binary little-endian 且含 XYZ/RGB，终点仍为独立 float32 positions 与 uint8 colors。
+
+候选环境：
+
+```text
+environment_id python310_open3d019_dracopy200_windows_x64
+Python         3.10.20
+Open3D         0.19.0
+DracoPy        2.0.0
+numpy          2.2.6
+OS             Windows 10.0.22631 x64
+timer          time.perf_counter_ns
+```
+
+Open3D 0.19.0 Windows wheel 暴露 `read_point_cloud_from_bytes`，但对 synthetic binary PLY 和真实 frame1051 tile PLY 均输出 unknown-format warning 并返回 0 点。没有 path API 或临时文件 fallback。
+
+## 12. Smoke 与停止判定
+
+ignored 输出：
+
+```text
+outputs/phase1b3_python_open3d_smoke.json
+SHA-256 C8D2414C93B7E46B109BECDAD16740AE5786070D1486711215DC4044EA4ED3B8
+```
+
+同一 Python 3.10 environment 的 smoke 结果：
+
+```text
+candidate_count 2
+success_count   1
+failure_count   1
+status          partial_failure
+PLY             failed, Open3D returned 0 points
+DRC             success, 612 decoded points, p50_ms 0.1582
+```
+
+PLY 是 representation-level backend capability failure。按冻结规则，本阶段没有运行 100-candidate pilot，没有拟合 PLY/DRC v2 模型，也没有生成 v2 measured summary、calibration 或 handoff。
+
+## 13. v1/v2 与 allocation 状态
+
+v1 三个 JSON 内容保持不变，其语义状态为：
+
+```text
+profile_status historical_plyfile_profile
+allocation_status superseded_for_allocation_pilot
+retention_status retained_for_audit
+```
+
+v1 仍是忠实的 plyfile profile measured/calibrated/derived 历史证据，不称为错误或伪造。v2 尚不存在；没有 100 measured records、没有 grouped validation、没有 800 derived candidates。
+
+```text
+phase_status blocked_by_open3d_windows_from_bytes_ply
+allocation_integration_status review_pending
+```
+
+allocation 继续不修改、不接入。`ready_for_provisional_integration` 不成立。
+
+## 14. 下一阶段建议
+
+先验证一个明确支持 PLY memory reader 的 Open3D wheel/build。每次更换 build 后只做 1-point synthetic 和 1 个真实 tile capability smoke；成功后再重复 1 PLY + 1 DRC smoke。只有双格式 smoke 通过，才允许运行 100-candidate pilot、leave-one-tile-out calibration 和 800-candidate v2 handoff。
+
+若 Windows Open3D memory PLY 路径不可获得，需由研究者版本化选择其他内存 backend 或调整 Python PLY execution profile；不得静默回退 path API 并继续沿用 payload-resident `d_ms` 名称。

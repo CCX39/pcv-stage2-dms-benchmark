@@ -119,3 +119,7 @@ allocation 应继续暂缓使用当前 handoff。
 3. 在新 profile 冻结后，先做双路径小规模复核，再重跑阶段 0C 的 25 个 PLY pilot 候选；DRC 不必因本轮结论无理由重测。
 4. 重新标定 PLY 模型并版本化生成新的 handoff；保留当前阶段 1A/1B 文件作为历史证据。
 5. 只有新 PLY measured/calibrated 结果完成完整性与 grouped validation 后，才重新评估 allocation 暂缓状态。
+
+## 10. 阶段 1B.3 后续验证
+
+阶段 1B.3 已验证当前 Open3D 0.19.0 Windows wheel 的 `read_point_cloud_from_bytes`。该 API 存在，但 `format="ply"` 对 synthetic 和真实 tile 均返回空点云；PLY smoke 失败，未生成 v2。阶段 1B.2 的 path-API 性能结论仍有效，但不能转换为正式内存 PLY profile。详见 `PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md`。

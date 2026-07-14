@@ -82,6 +82,42 @@ def main(argv: list[str] | None = None) -> int:
     alignment_parser.add_argument("--warmup", type=int, default=2, help="Warmup calls per path.")
     alignment_parser.add_argument("--samples", type=int, default=5, help="Measured calls per path.")
 
+    v2_pilot_parser = subparsers.add_parser(
+        "python-v2-pilot",
+        help="Measure Open3D memory PLY and DracoPy DRC in the Python 3.10 v2 profile.",
+    )
+    v2_pilot_parser.add_argument("--inventory", required=True, help="Input inventory JSON.")
+    v2_pilot_parser.add_argument("--sample-plan", required=True, help="Input sample plan JSON.")
+    v2_pilot_parser.add_argument(
+        "--data-prep-root", required=True, help="Root of pcv-stage2-data-prep."
+    )
+    v2_pilot_parser.add_argument("--out", required=True, help="Output v2 measured pilot JSON.")
+    v2_pilot_parser.add_argument("--warmup", type=int, default=2, help="Warmup calls per candidate.")
+    v2_pilot_parser.add_argument("--samples", type=int, default=5, help="Measured calls per candidate.")
+    v2_pilot_parser.add_argument(
+        "--smoke", action="store_true", help="Measure one PLY and one DRC candidate."
+    )
+
+    v2_calibration_parser = subparsers.add_parser(
+        "python-v2-calibrate",
+        help="Calibrate the Python 3.10 Open3D/DracoPy v2 pilot and export handoff.",
+    )
+    v2_calibration_parser.add_argument("--smoke", required=True, help="Input v2 smoke JSON.")
+    v2_calibration_parser.add_argument("--pilot", required=True, help="Input v2 pilot JSON.")
+    v2_calibration_parser.add_argument(
+        "--alignment", required=True, help="Input phase1B.2 alignment JSON."
+    )
+    v2_calibration_parser.add_argument("--inventory", required=True, help="Input inventory JSON.")
+    v2_calibration_parser.add_argument(
+        "--measured-summary-out", required=True, help="Output v2 measured summary JSON."
+    )
+    v2_calibration_parser.add_argument(
+        "--calibration-out", required=True, help="Output v2 calibration JSON."
+    )
+    v2_calibration_parser.add_argument(
+        "--handoff-out", required=True, help="Output v2 derived handoff JSON."
+    )
+
     args = parser.parse_args(argv)
     if args.command == "inventory":
         inventory = _run_inventory(args)
@@ -99,6 +135,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_python_calibration(args)
     if args.command == "ply-backend-align":
         return _run_ply_backend_alignment(args)
+    if args.command == "python-v2-pilot":
+        return _run_python_v2_pilot(args)
+    if args.command == "python-v2-calibrate":
+        return _run_python_v2_calibration(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
@@ -241,6 +281,160 @@ def _run_ply_backend_alignment(args: argparse.Namespace) -> int:
     print(f"failure_count={result['failure_count']}")
     print(f"conclusion={result['conclusion']}")
     return 0 if result["failure_count"] == 0 else 1
+
+
+def _run_python_v2_pilot(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.open3d_python_backend import (
+        run_python_v2_pilot,
+        verify_ply_candidate_against_legacy,
+    )
+    from pcv_dms_benchmark.python_benchmark import (
+        load_json_object,
+        select_candidates,
+        write_pilot_result,
+    )
+
+    inventory = load_json_object(args.inventory)
+    sample_plan = load_json_object(args.sample_plan)
+    candidates = select_candidates(inventory, sample_plan, smoke=args.smoke)
+    result = run_python_v2_pilot(
+        candidates,
+        data_prep_root=args.data_prep_root,
+        warmup_count=args.warmup,
+        sample_count=args.samples,
+    )
+    if args.smoke and result["failure_count"] == 0:
+        ply_candidate = next(
+            candidate for candidate in candidates if candidate.get("representation") == "ply"
+        )
+        result["ply_smoke_equivalence"] = verify_ply_candidate_against_legacy(
+            ply_candidate, data_prep_root=args.data_prep_root
+        )
+    write_pilot_result(args.out, result)
+    print(f"pilot_out={Path(args.out)}")
+    print(f"environment_id={result['environment_id']}")
+    print(f"candidate_count={result['candidate_count']}")
+    print(f"success_count={result['success_count']}")
+    print(f"failure_count={result['failure_count']}")
+    print(f"status={result['status']}")
+    return 0 if result["failure_count"] == 0 else 1
+
+
+def _run_python_v2_calibration(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.calibration import calibrate_models
+    from pcv_dms_benchmark.derived_export import (
+        build_derived_handoff,
+        build_measured_summary,
+        sha256_file,
+        write_json,
+    )
+    from pcv_dms_benchmark.open3d_python_backend import (
+        ALLOCATION_USE_SCOPE,
+        CALIBRATION_ID,
+        ENVIRONMENT_ID,
+        HANDOFF_ID,
+        MEASUREMENT_SCOPE,
+        allocation_release_status,
+        audit_alignment_consistency,
+        audit_v2_smoke,
+    )
+    from pcv_dms_benchmark.python_benchmark import load_json_object
+
+    smoke = load_json_object(args.smoke)
+    pilot = load_json_object(args.pilot)
+    alignment = load_json_object(args.alignment)
+    inventory = load_json_object(args.inventory)
+    smoke_audit = audit_v2_smoke(smoke)
+    alignment_audit = audit_alignment_consistency(pilot, alignment)
+    pilot_sha256 = sha256_file(args.pilot)
+    inventory_sha256 = sha256_file(args.inventory)
+    calibration = calibrate_models(
+        pilot,
+        inventory,
+        source_pilot_sha256=pilot_sha256,
+        source_inventory_sha256=inventory_sha256,
+        calibration_id=CALIBRATION_ID,
+        expected_environment_id=ENVIRONMENT_ID,
+        expected_measurement_scope=MEASUREMENT_SCOPE,
+        allocation_use_scope=ALLOCATION_USE_SCOPE,
+        profile_limitation=(
+            "specific to Python 3.10.20, Open3D 0.19.0, DracoPy 2.0.0, "
+            "and numpy 2.2.6 on Windows x64"
+        ),
+        delivery_version="v2",
+    )
+    integration_status = allocation_release_status(
+        calibration,
+        smoke_audit=smoke_audit,
+        alignment_audit=alignment_audit,
+    )
+    release_gate = {
+        "smoke": smoke_audit,
+        "phase1b2_alignment_consistency": alignment_audit,
+        "all_models_recommended": all(
+            calibration["representation_models"][representation][
+                "recommended_for_allocation_pilot"
+            ]
+            for representation in ("ply", "drc")
+        ),
+        "status": "passed"
+        if integration_status == "ready_for_provisional_integration"
+        else "failed",
+    }
+    calibration.update(
+        {
+            "environment_snapshot": pilot.get("environment_snapshot"),
+            "source_smoke_sha256": sha256_file(args.smoke),
+            "source_alignment_sha256": sha256_file(args.alignment),
+            "release_gate": release_gate,
+            "allocation_integration_status": integration_status,
+            "v1_relationship": {
+                "v1_profile_status": "historical_plyfile_profile",
+                "allocation_status": "superseded_for_allocation_pilot",
+                "retention_status": "retained_for_audit",
+                "v1_values_used_for_v2_calibration": False,
+            },
+        }
+    )
+    measured_summary = build_measured_summary(
+        pilot, source_pilot_sha256=pilot_sha256, delivery_version="v2"
+    )
+    measured_summary["execution_profile"] = ENVIRONMENT_ID
+    handoff = build_derived_handoff(
+        inventory,
+        calibration,
+        expected_representation_counts={"ply": 200, "drc": 600},
+        handoff_id=HANDOFF_ID,
+        allocation_use_scope=ALLOCATION_USE_SCOPE,
+        delivery_version="v2",
+        allocation_integration_status=integration_status,
+        limitations=[
+            "derived from one Longdress frame and five measured tiles",
+            "not cross-frame or cross-dataset validated",
+            "specific to the Python 3.10 Open3D 0.19.0 and DracoPy 2.0.0 profile",
+            "allocation must join by candidate_key and verify tile_id plus candidate_id",
+        ],
+    )
+    handoff["release_gate"] = release_gate
+    handoff["v1_relationship"] = calibration["v1_relationship"]
+
+    write_json(args.measured_summary_out, measured_summary)
+    write_json(args.calibration_out, calibration)
+    write_json(args.handoff_out, handoff)
+    for representation in ("ply", "drc"):
+        model = calibration["representation_models"][representation]
+        print(f"{representation}_selected_model={model['selected_model']}")
+        print(
+            f"{representation}_normalized_mae="
+            f"{model['cross_validation_metrics']['normalized_mae']:.9f}"
+        )
+        print(
+            f"{representation}_recommended_for_allocation_pilot="
+            f"{str(model['recommended_for_allocation_pilot']).lower()}"
+        )
+    print(f"candidate_count={handoff['candidate_count']}")
+    print(f"allocation_integration_status={integration_status}")
+    return 0 if integration_status == "ready_for_provisional_integration" else 1
 
 
 if __name__ == "__main__":
