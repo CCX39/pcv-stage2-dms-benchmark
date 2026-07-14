@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新日期：2026-07-14。本文档记录阶段 1B.3 Open3D 内存 PLY capability smoke 后的本机状态。
+更新日期：2026-07-14。本文档记录阶段 1B.4 NumPy 快速 PLY、同环境 Python v2 重测、标定与交付后的本机状态；较早章节保留历史过程，当前结论以第 15 节以后为准。
 
 ## 1. 项目与 Git 基线
 
@@ -210,3 +210,143 @@ allocation 继续不修改、不接入。`ready_for_provisional_integration` 不
 先验证一个明确支持 PLY memory reader 的 Open3D wheel/build。每次更换 build 后只做 1-point synthetic 和 1 个真实 tile capability smoke；成功后再重复 1 PLY + 1 DRC smoke。只有双格式 smoke 通过，才允许运行 100-candidate pilot、leave-one-tile-out calibration 和 800-candidate v2 handoff。
 
 若 Windows Open3D memory PLY 路径不可获得，需由研究者版本化选择其他内存 backend 或调整 Python PLY execution profile；不得静默回退 path API 并继续沿用 payload-resident `d_ms` 名称。
+
+## 15. 阶段 1B.4 实现与 environment
+
+阶段开始基线为：
+
+```text
+branch   main
+upstream origin/main
+HEAD     e9fb9f0 feat: switch Python PLY benchmark to Open3D memory IO
+worktree clean
+```
+
+新增 `numpy_ply_backend.py`，使用 header 驱动的 NumPy structured dtype 与 `numpy.frombuffer` 解释 vertex block，再直接填充新的 canonical arrays。正式 processor 只接收 bytes/只读 buffer，不执行文件读取、不调用 path API、不创建临时文件。
+
+实际 profile：
+
+```text
+environment_id python313_numpy_ply_dracopy200_windows_x64
+Python         CPython 3.13.0
+numpy          2.5.1
+DracoPy        2.0.0
+plyfile        1.1.4，仅作诊断参照
+OS             Windows 10.0.22631 x64
+timer          time.perf_counter_ns
+```
+
+PLY 与 DRC 均在仓库本地 `.venv` 的同一解释器和 pilot profile 中重新测量，没有复用或拼接 Python 3.10/3.13 的跨环境 measured 值。
+
+## 16. 4-candidate gate 与 smoke
+
+沿用阶段 1B.2 的最小/最大 tile、PDL 0.2/1.0，共 4 个 PLY 候选。NumPy fast 与 plyfile 的 point count、shape、dtype、坐标、RGB 和 ownership correctness 为 4/4 passed；NumPy fast 在 4/4 候选上均比 plyfile 快超过 5 倍。正式 processor 的 file I/O 与 path API 检查均通过，gate 为 passed。
+
+```text
+outputs/phase1b4_numpy_ply_alignment.json
+SHA-256 A5F547EE440751714A8F41EA41053A610BBACF2EA6695F0B7544E62A58158620
+```
+
+一个 PLY + 一个 DRC smoke 为 2/2 success：
+
+```text
+outputs/phase1b4_python_numpy_smoke.json
+SHA-256 B97A792E3D476249B6CC608CFE02AD35E88BB08B688C727CCFDA6F00BC87CE0E
+```
+
+上述输出均位于 ignored `outputs/`，不纳入 Git。
+
+## 17. 100-candidate pilot
+
+阶段 0C sample plan 的 100 个候选全部成功：PLY 25、DRC 75、5 个 tile、失败 0；所有 decoded point count 与 metadata 一致。参数仍为 warmup 2、sample 5，目标统计量为 `p50_ms`。
+
+```text
+outputs/phase1b4_python_numpy_pilot.json
+SHA-256 AE9F1E499D5D37718EC7FE4DB46CA715649A423B84209B0F793BCCC894C51B40
+```
+
+原始 pilot 保留 `raw_samples_ms` 供本地审查，但继续由 Git 忽略。版本化 measured summary 不含 raw samples。
+
+## 18. v2 models 与 release gate
+
+PLY 与 DRC 分别执行按 `tile_id` 的 leave-one-tile-out，未使用 `tile_id`、`candidate_id` 或 `candidate_key` 作为特征。
+
+PLY 选择 P1 point-count linear：
+
+```text
+d_hat_ms = 0.012501787380941863
+         + 0.002856343196791854 * (point_count / 1000)
+MAE               0.001591102836467444 ms
+RMSE              0.002289788158323121 ms
+median absolute   0.0012876845897889528 ms
+normalized MAE    0.04419730101298456
+recommended       true
+```
+
+DRC 的 D1--D3 grouped validation normalized MAE 约为 0.0283--0.0300，但在全量 600 个 DRC inventory 候选上产生负预测；按既有规则不可选、不可裁剪。最终只能选择全量预测有效的 D0 常数中位数：
+
+```text
+d_hat_ms          1.9779
+MAE               2.0271573333333333 ms
+RMSE              2.6063110693980227 ms
+median absolute   1.8221 ms
+normalized MAE    1.0249038542561977
+recommended       false
+```
+
+因此模型和交付文件可审计，但整份 v2 未通过 `normalized_mae <= 0.30` 的双表示 release gate。
+
+## 19. v2 版本化交付与完整性
+
+已新增：
+
+```text
+results/python_numpy_frame1051_measured_summary_v2.json
+results/python_numpy_frame1051_calibration_v2.json
+handoff/python_numpy_frame1051_candidate_dms_v2.json
+```
+
+measured summary 为 100 条，PLY 25、DRC 75，不含 `raw_samples_ms`。handoff 为 800 条 derived record，PLY 200、DRC 600；800 个 `candidate_key` 唯一，当前 frame1051 中 800 个 `tile_id + candidate_id` 组合唯一，全部 `d_hat_ms` 有限且大于 0。measured、calibrated、derived provenance 保持分离。
+
+当前状态：
+
+```text
+phase_status                  completed_with_release_gate_not_met
+allocation_integration_status review_pending
+```
+
+v1 继续标记为 `historical_plyfile_profile` / `superseded_for_allocation_pilot` / `retained_for_audit`；阶段 1B.3 继续标记为 `blocked_open3d_windows_from_bytes_profile` / `retained_for_audit`。两者证据均未覆盖或删除。
+
+## 20. 当前限制与下一阶段
+
+- 当前只有 Longdress frame1051、5 个测量 tile、单一 Python environment，尚未完成跨帧或跨数据集验证。
+- NumPy parser 仅支持当前受控 Stage2 binary little-endian scalar vertex corpus，不是通用 PLY parser。
+- PLY backend 问题已经解决，但 DRC 模型在全量小候选上的正值外推 gate 未通过。
+- C++ 与 JavaScript 环境仍未实现；allocation 仓库仍未修改。
+- 外部 `pcv-stage2-data-prep`、`pcv-stage2-allocation`、`PointCloud_Benchmark` 均保持只读，`reference/Decode_Worker.js` 未修改。
+
+下一阶段应优先补充小 point-count DRC 候选的 Longdress tile/frame measured 覆盖，或审查天然保持正值且仍可解释的简单模型形式，然后重新执行 grouped validation 与全量正值 gate。在 PLY 与 DRC 均达到阈值前，不建议 allocation 接入整份 v2 handoff。
+
+## 21. 外部仓库本机只读状态
+
+阶段 1B.4 收尾时的实际状态为：
+
+```text
+pcv-stage2-allocation
+## master...origin/master
+5870ccc feat: add frame 1051 integrated proxy validation
+
+pcv-stage2-data-prep
+## main...origin/main
+8473226 feat: record validated frame 1051 DRC pilot corpus
+
+PointCloud_Benchmark
+## main...origin/main
+ M README.md
+?? README.zh-CN.md
+?? reproducibility/
+?? scripts/plot_time_vs_point_count_filtered.py
+cb3a197 修改说明：readme更新
+```
+
+旧 benchmark 当前存在上述既有修改/未跟踪内容，不能再沿用阶段 1B.1 中“仅一个未跟踪脚本”的旧状态描述。本阶段对三个外部仓库只执行 `git status`、`git log` 和 metadata/资产只读访问，没有写入、格式化或提交任何外部文件；上述旧 benchmark 工作区内容保持原样，不纳入本项目提交。

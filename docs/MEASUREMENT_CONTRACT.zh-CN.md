@@ -323,3 +323,23 @@ time.perf_counter_ns
 当前 Windows wheel 虽暴露 from-bytes API，但对 synthetic 与真实 binary PLY 均返回空点云并报告 unknown format。双格式 smoke 未通过，因此该 environment 目前是 blocked candidate profile，不是当前推荐或已冻结的正式 Python profile。阶段 1A 的 plyfile profile 继续作为历史 measured 证据保留，但已不建议用于新的 allocation pilot。
 
 在 capability smoke 成功并完成同环境 PLY/DRC 100-candidate 重测前，不得生成或使用 Python v2 calibration/handoff，也不得把 Python 3.10 PLY 与 Python 3.13 DRC 拼接。
+
+## 20. 阶段 1B.4 NumPy PLY 正式 profile
+
+阶段 1B.4 将当前推荐的 Python PLY execution profile 冻结为：
+
+```text
+environment_id python313_numpy_ply_dracopy200_windows_x64
+Python         CPython 3.13.0
+numpy          2.5.1
+DracoPy        2.0.0
+timer          time.perf_counter_ns
+```
+
+PLY 正式 processor 只接收已驻留内存的 `bytes` 或只读 buffer。计时内解析 header、按 header 顺序构造 little-endian NumPy structured dtype、使用 `numpy.frombuffer` 解释 vertex block，并生成新的 `positions float32[N,3]` 与 `colors uint8[N,3]`。它不接收路径、不执行文件读取、不调用 Open3D、不创建临时文件，也不输出 normals。
+
+该 processor 仅面向当前受控 Stage2 `binary_little_endian 1.0`、scalar vertex、XYZ 与 `uint8` RGB corpus，不宣称为通用 PLY parser。ASCII、vertex list property、缺失 XYZ/RGB、非 `uint8` RGB、不支持的 scalar type 和截断 payload 必须明确失败，不得 fallback 或采用未冻结的颜色缩放规则。
+
+Open3D path API 仍仅属于阶段 1B.2 诊断；Open3D 0.19.0 Windows from-bytes profile 仍记录为阶段 1B.3 blocker。DRC 使用同一 Python 3.13 环境中的 `DracoPy.decode(bytes)`，不得与其他 Python 版本的 measured 值拼接。
+
+阶段 1B.4 继续仅对 Python frame1051 provisional pilot 使用 `target_statistic = p50_ms` 与按 `tile_id` 的 leave-one-tile-out 验证。v2 文件中的 `derived d_hat_ms` 不是逐候选 measured。尽管 PLY 模型通过阈值，DRC selected model 未达到 `normalized_mae <= 0.30`，所以整份 v2 当前为 `allocation_integration_status = review_pending`；该状态不改变上述 measurement profile 和计时边界本身。

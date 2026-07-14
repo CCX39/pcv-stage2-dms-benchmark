@@ -187,3 +187,9 @@ allocation_integration_status = review_pending
 3. 若 Open3D 0.19.0 Windows memory API 确认不支持 PLY，研究者需决定更换 Open3D build/backend，或版本化调整 Python PLY execution profile；不得回退到 path API 并沿用当前内存边界名称。
 4. capability smoke 成功后，重新执行 1 PLY + 1 DRC smoke；随后才允许 100-candidate pilot、grouped calibration 和 v2 handoff。
 5. 在真实 v2 完整通过前，allocation 保持 `review_pending`。
+
+## 17. 阶段 1B.4 后续状态
+
+阶段 1B.4 不再编译或更换 Open3D wheel，而是针对受控 Stage2 binary PLY 实现 NumPy `frombuffer` 内存路径。该路径已通过 4-candidate correctness/性能 gate，并与 DracoPy 在同一 CPython 3.13 环境完成 100-candidate 重测和 v2 交付。
+
+本阶段的 Open3D from-bytes blocker 结论继续保留，不被 NumPy 路线覆盖或删除。v2 最终仍为 `review_pending`，原因已从 PLY backend capability 转为 DRC calibration release gate 未通过；详见 `PHASE1B4_NUMPY_PLY_PYTHON_V2.zh-CN.md`。

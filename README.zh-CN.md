@@ -68,6 +68,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - [阶段 1B.1 旧 Python timing 差异审查](docs/PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)：对照旧项目与当前链路的 backend、边界、资产、结果和证据等级，并记录 handoff 暂缓接入状态。
 - [阶段 1B.2 PLY backend 最小对齐实验](docs/PHASE1B2_PLY_BACKEND_ALIGNMENT.zh-CN.md)：用 4 个候选对照 plyfile 与 Open3D，记录正确性、边界限制和 backend 切换建议。
 - [阶段 1B.3 Open3D 内存 PLY 与 Python v2 审查](docs/PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md)：记录 from-bytes Windows wheel blocker、双格式 smoke 和未生成 v2 交付的原因。
+- [阶段 1B.4 NumPy 快速 PLY 与 Python v2](docs/PHASE1B4_NUMPY_PLY_PYTHON_V2.zh-CN.md)：记录受控 binary PLY 内存解析、4-candidate gate、同环境重测、重新标定与 v2 release-gate 结论。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -152,3 +153,25 @@ handoff 是由单帧、5 个测量 tile 标定模型生成的 `derived` provisio
 > 阶段 1B.2 状态：4-candidate 正确性全部通过，诊断结果强支持将 Open3D 作为下一版 Python PLY backend 候选；Open3D path API 仍不符合正式内存驻留边界，当前 handoff 继续暂缓接入。
 
 > 阶段 1B.3 状态：Open3D 0.19.0 Windows wheel 的 `read_point_cloud_from_bytes(..., format="ply")` 对 synthetic 与真实 PLY 均返回空点云。PLY smoke 失败，100-candidate pilot、v2 calibration 与 v2 handoff 均未生成；当前没有 ready 的 Python allocation profile。
+
+## 阶段 1B.4 NumPy Python v2
+
+当前推荐的 Python 测量 profile 为同一 CPython 3.13 环境中的 NumPy `frombuffer` PLY bytes processor 与 `DracoPy.decode(bytes)`。NumPy parser 仅面向当前 Stage2 binary little-endian scalar vertex corpus，不是通用 PLY parser；磁盘读取仍在正式 `d_ms` 计时外。
+
+```powershell
+$env:PYTHONPATH='src'
+.venv\Scripts\python -m pcv_dms_benchmark.cli numpy-ply-align `
+  --inventory outputs\phase0c_frame1051_inventory.json `
+  --sample-plan outputs\phase0c_frame1051_sample_plan.json `
+  --phase1b2-alignment outputs\phase1b2_ply_backend_alignment.json `
+  --data-prep-root E:\Miunaaaa\0-work\code\pcv-stage2-data-prep `
+  --out outputs\phase1b4_numpy_ply_alignment.json --warmup 2 --samples 5
+```
+
+阶段 1B.4 已生成以下版本化文件：
+
+- `results/python_numpy_frame1051_measured_summary_v2.json`；
+- `results/python_numpy_frame1051_calibration_v2.json`；
+- `handoff/python_numpy_frame1051_candidate_dms_v2.json`。
+
+v1 plyfile profile 与阶段 1B.3 Open3D blocker 仅保留审计。v2 的 NumPy PLY gate、双格式 smoke、100/100 pilot 和 800-candidate 完整性均通过，但 DRC selected model 未达到 provisional 推荐阈值，因此 `allocation_integration_status = review_pending`，当前仍不应接入 allocation。完整命令、指标、公式和限制见阶段 1B.4 文档。

@@ -121,3 +121,5 @@ allocation 后续应以 `candidate_key` 为主键，并同时核验 `dataset_id`
 > 阶段 1B.1 后续审查：旧 `PointCloud_Benchmark` 与当前 measured 结果呈现相反的 PLY/DRC 排序。只读审查未发现当前单位、计时或 canonical 输出语义错误，但确认两套实验在 backend、边界、资产尺度和输出整理上不可直接比较。因此本文件和 JSON 中的内部推荐判定保留，allocation 操作状态暂记为 `review_pending` 与 `temporarily_hold_for_allocation_integration`。完整证据见 [阶段 1B.1 差异审查](PHASE1B1_LEGACY_PYTHON_DISCREPANCY_AUDIT.zh-CN.md)。
 
 > 阶段 1B.3 状态：v1 现标记为 `historical_plyfile_profile`、`superseded_for_allocation_pilot`、`retained_for_audit`，内容不改。Open3D from-bytes PLY smoke 因 Windows wheel unknown-format/空点云失败，v2 未生成，allocation 继续 `review_pending`。详见 [阶段 1B.3 文档](PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md)。
+
+> 阶段 1B.4 状态：NumPy PLY + DracoPy 同环境 v2 已完成 100-candidate 重测、重新标定和 800-candidate handoff；v1 内容仍不改。PLY 模型通过 provisional 阈值，但 DRC 线性候选在全量小候选上产生负预测，唯一有效的常数模型又未通过 normalized MAE 阈值，因此 v2 仍为 `review_pending`。详见 [阶段 1B.4 文档](PHASE1B4_NUMPY_PLY_PYTHON_V2.zh-CN.md)。
