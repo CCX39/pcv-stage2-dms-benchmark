@@ -77,6 +77,33 @@
       "eligible_for_allocation": false,
       "reason": "Windows Open3D from-bytes PLY capability 返回空点云，未形成完整 measurement profile。",
       "superseded_by": null
+    },
+    {
+      "path": "results/python_path_stage_frame1051_measured_summary_v1.json",
+      "profile": "python310_open3d019_dracopy200_path_stage_windows_x64",
+      "measurement_kind": "parse_stage_end_to_end",
+      "historical_status": "current_provisional_measured_evidence",
+      "eligible_for_allocation": false,
+      "reason": "100 个直接测量候选构成当前 Python path stage 标定证据；allocation 使用版本化 derived handoff，而不直接使用 measured summary。",
+      "superseded_by": null
+    },
+    {
+      "path": "results/python_path_stage_frame1051_calibration_v1.json",
+      "profile": "python310_open3d019_dracopy200_path_stage_windows_x64",
+      "measurement_kind": "parse_stage_end_to_end",
+      "historical_status": "current_provisional_calibration",
+      "eligible_for_allocation": false,
+      "reason": "按 tile 留一验证通过的环境专属模型；allocation 使用由该模型导出的版本化 handoff。",
+      "superseded_by": null
+    },
+    {
+      "path": "handoff/python_path_stage_frame1051_candidate_dms_v1.json",
+      "profile": "python310_open3d019_dracopy200_path_stage_windows_x64",
+      "measurement_kind": "parse_stage_end_to_end",
+      "historical_status": "current_provisional_handoff",
+      "eligible_for_allocation": true,
+      "reason": "Python path stage smoke、100-candidate pilot、分组验证、800-candidate 正值预测和 provenance release gate 全部通过；仅适用于声明的 provisional Python path profile。",
+      "superseded_by": null
     }
   ]
 }

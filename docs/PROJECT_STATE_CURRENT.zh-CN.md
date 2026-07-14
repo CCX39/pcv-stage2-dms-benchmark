@@ -1,10 +1,10 @@
 # 当前项目状态
 
-更新日期：2026-07-14。本文档记录阶段 1B.5 解析阶段端到端契约修正后的本机状态；较早章节保留历史过程，当前契约与 allocation 资格以第 22 节以后为准。
+更新日期：2026-07-14。本文档记录阶段 2A Python path stage 交付后的本机状态；较早章节保留历史过程，当前契约与 allocation 资格以第 22 节及第 27 节以后为准。
 
 ## 1. 项目与 Git 基线
 
-本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结基础契约，阶段 0C 已完成 frame1051 的 800-candidate inventory 与抽样计划，阶段 1A 已完成 Python 真实测量，阶段 1B 已完成 provisional 模型标定和 derived handoff。阶段 1B.1 对旧 Python benchmark 与当前结果的相反排序进行了只读审查。
+本仓库为 Stage2 allocation 准备环境专属候选级 CPU 处理耗时。阶段 0A/0B 已冻结基础契约，阶段 0C 已完成 frame1051 的 800-candidate inventory 与抽样计划，阶段 1A/1B 系列保留 Python core 与 backend 诊断证据，阶段 1B.5 修正正式契约，阶段 2A 已完成第一版 Python path `d_stage_ms` measured、calibrated 与 derived provisional handoff。
 
 阶段 1B.1 开始时：
 
@@ -428,3 +428,125 @@ b99815b docs: publish Figure 2 benchmark reproducibility record
 ```
 
 三个外部仓库均未被本阶段写入、格式化或提交。`reference/Decode_Worker.js` 继续只读，SHA-256 仍为 `0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C`。
+
+## 27. 阶段 2A Python path stage profile
+
+阶段 2A 按 1B.5 契约建立第一版正式 Python `d_stage_ms` profile：
+
+```text
+environment_id          python310_open3d019_dracopy200_path_stage_windows_x64
+measurement_kind        parse_stage_end_to_end
+timing_start            path_delivered_to_loader
+timing_end              positions_colors_ready
+filesystem_cache_policy os_managed_repeated_path_load
+Python                   3.10.20
+Open3D                   0.19.0
+DracoPy                  2.0.0
+NumPy                    2.2.6
+```
+
+仓库 ignored `.venv/open3d310` 与只读探测的 conda `open3d_env` 版本一致；实际测量只使用前者。PLY 和 DRC 始终在同一个解释器与 profile 中运行，没有拼接历史 Python 3.13 DRC 数据。
+
+旧 `PointCloud_Benchmark/scripts/benchmark_python.py` 的代码证据确认 PLY API 为 `open3d.t.io.read_point_cloud(path)`。本阶段 PLY 在计时内执行 Tensor path load、points/colors 提取和独立 float32/uint8 数组复制；DRC 在计时内执行 `Path.read_bytes()`、`DracoPy.decode`、属性提取和独立数组复制。inventory/path 查找、存在性与 stat 校验在计时外，网络、GPU 与渲染排除。
+
+## 28. Smoke 与 100-candidate pilot
+
+一个 PLY 加一个 DRC 的 smoke 为 2/2 成功；阶段 0C sample plan 的 pilot 为 100/100 成功、失败 0，其中 PLY 25、DRC 75，全部 decoded point count 与 metadata 一致。每候选 warmup 2、sample 5，目标统计量为 `p50_ms`。
+
+```text
+outputs/phase2a_python_path_stage_smoke.json
+SHA-256 D3B3C1BE73253092641330DC674BB58B8730A6835AE5070D9568F9FC7B0B634A
+
+outputs/phase2a_python_path_stage_pilot.json
+SHA-256 FD9B3394A9B0B9828E254BB877A9418E41F295BDC9B84DB23F2BFB2E1633F059
+```
+
+PLY measured p50 范围为 0.0782--2.1727 ms；DRC 为 0.1947--9.2994 ms。raw samples 只保存在 ignored pilot 中，未纳入版本化 summary。
+
+## 29. 模型与 grouped validation
+
+PLY 与 DRC 分别按 `tile_id` 执行五折 leave-one-tile-out，不把 tile/candidate identity 当作特征。PLY 选择 P2 文件大小线性模型：
+
+```text
+d_stage_ms = 0.040619658097626035
+           + 0.003926988877250943 * (file_size_bytes / 1000)
+MAE            0.024035142735368793 ms
+RMSE           0.03485562790037916 ms
+median AE      0.009714119545086747 ms
+normalized MAE 0.04503493111367584
+```
+
+DRC 选择 D4 非负点数线性模型；非负约束在拟合阶段实现，没有预测后裁剪：
+
+```text
+d_stage_ms = 0.0
+           + 0.25404561763166683 * (point_count / 1000)
+MAE            0.12457911293347244 ms
+RMSE           0.17731289186146668 ms
+median AE      0.07714423666491887 ms
+normalized MAE 0.06090994618563166
+```
+
+D1--D3 因对全部 DRC inventory 产生非正预测而不可选。P2 与 D4 均满足 normalized MAE 不高于 0.30，并对各自全量候选产生有限正值。
+
+## 30. 版本化资产与 allocation 状态
+
+新增：
+
+```text
+results/python_path_stage_frame1051_measured_summary_v1.json
+results/python_path_stage_frame1051_calibration_v1.json
+handoff/python_path_stage_frame1051_candidate_dms_v1.json
+```
+
+measured summary 含 100 条且不含 `raw_samples_ms`。handoff 覆盖 800 个唯一 `candidate_key`，其中 PLY 200、DRC 600；所有 `d_stage_ms` 有限且大于 0，兼容字段 `d_hat_ms` 与其数值一致，provenance 为 `derived`。
+
+```text
+eligible_for_allocation       true
+allocation_integration_status ready_for_provisional_integration
+allocation_use_scope          provisional_python_path_profile
+```
+
+该 handoff 是当前唯一具有 allocation provisional 资格的 Python 资产，适用范围严格限于 Longdress frame1051、Windows x64、上述 Open3D/DracoPy profile 与 OS-managed repeated path load。历史 plyfile v1、NumPy v2、Open3D path diagnostic 和 from-bytes blocker 的 JSON/证据均未修改，仍不可接入 allocation。`results/measurement_asset_status_v1.json` 已同步记录当前解释。
+
+## 31. 当前限制与下一阶段
+
+- 当前模型只有一个 frame、5 个 measured tile，未跨帧或跨数据集验证。
+- OS-managed repeated path load 不是严格冷缓存 profile。
+- handoff 只代表 Python path stage，不能代表浏览器 Worker 或 C++。
+- allocation 仓库没有被本阶段修改；本仓库只准备交付，不自动执行接入。
+
+下一步可由 allocation 仓库单独读取该 handoff 做 provisional 行为验证。之后仍需分别建立 C++ 和 JavaScript Worker 的 `parse_stage_end_to_end` 测量与 handoff，三种环境结果不得混合。
+
+## 32. 阶段 2A Git 与只读收尾基线
+
+阶段开始时本仓库实际状态为：
+
+```text
+E:\Miunaaaa\0-work\code\pcv-stage2-dms-benchmark
+branch   main
+upstream origin/main
+HEAD     0bbfc86 docs: correct d_ms stage timing contract
+worktree clean
+```
+
+远程 `origin` 为 `https://github.com/CCX39/pcv-stage2-dms-benchmark.git`。本阶段创建单主题 commit，但不执行 push。
+
+收尾只读检查时外部仓库状态与阶段开始一致：
+
+```text
+pcv-stage2-allocation
+## master...origin/master
+5870ccc feat: add frame 1051 integrated proxy validation
+
+pcv-stage2-data-prep
+## main...origin/main
+8473226 feat: record validated frame 1051 DRC pilot corpus
+
+PointCloud_Benchmark
+## main...origin/main
+?? scripts/plot_time_vs_point_count_filtered.py
+b99815b docs: publish Figure 2 benchmark reproducibility record
+```
+
+三个外部仓库均未写入；旧 benchmark 的既有未跟踪脚本保持原状。`reference/Decode_Worker.js` 的 SHA-256 仍为 `0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C`。历史 plyfile v1 与 NumPy v2 六个 JSON 的 SHA-256 均由回归测试确认未变化。

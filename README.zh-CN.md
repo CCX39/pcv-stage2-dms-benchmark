@@ -9,7 +9,7 @@
 与相邻仓库的职责关系如下：
 
 - `pcv-stage2-data-prep`：负责生成和验证 frame 1051 pilot 的 tile binary PLY 与 tile DRC 资产及 metadata；本仓库只读消费其 metadata 语义。
-- `pcv-stage2-allocation`：负责 Stage2 候选选择和 proxy pilot；本仓库未来通过资格审查的环境专属 `d_stage_ms` 估计可作为 allocation 输入之一，但当前没有合格 handoff。
+- `pcv-stage2-allocation`：负责 Stage2 候选选择和 proxy pilot；阶段 2A 已提供通过资格审查的 Python path profile provisional `d_stage_ms` handoff，但 allocation 仓库尚未接入或修改。
 - 旧 `PointCloud_Benchmark`：只作为历史实现参考；其计时边界与本仓库冻结的第一版 `d_ms` 边界不同，不能直接复用为新测量契约。
 
 ## 正式输入资产范围
@@ -56,7 +56,7 @@ colors: uint8[N, 3]
 d_hat_ms = f(environment, representation, candidate_metadata)
 ```
 
-阶段 1A 至 1B.4 已生成 Python 核心 measured、calibrated 与 derived 资产；阶段 1B.5 将其统一重分类为 `core_parse_microbenchmark`，只用于诊断和下界分析，`eligible_for_allocation = false`。allocation 仓库尚未修改。
+阶段 1A 至 1B.4 的 Python 资产已按阶段 1B.5 重分类为 `core_parse_microbenchmark`，只用于诊断和下界分析。阶段 2A 新增同一 Python 3.10 环境中的 Open3D PLY path loader 与 DracoPy DRC path stage 测量，生成当前唯一 `eligible_for_allocation = true` 的 provisional Python handoff；allocation 仓库仍未修改。
 
 ## 阶段文档
 
@@ -70,6 +70,7 @@ d_hat_ms = f(environment, representation, candidate_metadata)
 - [阶段 1B.3 Open3D 内存 PLY 与 Python v2 审查](docs/PHASE1B3_OPEN3D_IN_MEMORY_PYTHON_V2.zh-CN.md)：记录 from-bytes Windows wheel blocker、双格式 smoke 和未生成 v2 交付的原因。
 - [阶段 1B.4 NumPy 快速 PLY 与 Python v2](docs/PHASE1B4_NUMPY_PLY_PYTHON_V2.zh-CN.md)：记录受控 binary PLY 内存解析、4-candidate gate、同环境重测、重新标定与 v2 release-gate 结论。
 - [阶段 1B.5 d_ms 契约修正](docs/PHASE1B5_DMS_CONTRACT_CORRECTION.zh-CN.md)：记录 `d_stage_ms` / `d_core_ms` 分离、历史资产重分类和新的 allocation 资格规则。
+- [阶段 2A Python path stage pilot 与 handoff](docs/PHASE2A_PYTHON_PATH_STAGE_PILOT_AND_HANDOFF.zh-CN.md)：记录文件到 canonical arrays 的正式 Python profile、测量、分组标定、release gate 与 800-candidate provisional handoff。
 - [当前项目状态](docs/PROJECT_STATE_CURRENT.zh-CN.md)：记录本机仓库状态、只读审查发现、当前已冻结与未冻结事项。
 
 ## Longdress pilot 路线
@@ -176,3 +177,25 @@ $env:PYTHONPATH='src'
 - `handoff/python_numpy_frame1051_candidate_dms_v2.json`。
 
 v1 plyfile profile 与阶段 1B.3 Open3D blocker 仅保留审计。v2 的 NumPy PLY gate、双格式 smoke、100/100 pilot 和 800-candidate 完整性属于历史实验事实；按阶段 1B.5 的 measurement scope 资格规则，v1/v2 均为 `eligible_for_allocation = false`、`allocation_integration_status = ineligible_measurement_scope`。完整重分类见阶段 1B.5 文档和 `results/measurement_asset_status_v1.json`。
+
+## 阶段 2A Python path stage
+
+当前正式 Python path profile 使用同一 CPython 3.10.20 环境中的 `open3d.t.io.read_point_cloud(path)` 与 `Path.read_bytes() + DracoPy.decode(bytes)`。文件 open/read、parse/decode 和 canonical arrays 生成均计入 `d_stage_ms`；缓存策略为 `os_managed_repeated_path_load`。
+
+```powershell
+$env:PYTHONPATH='src'
+.venv\open3d310\Scripts\python -m pcv_dms_benchmark.cli python-path-stage-pilot `
+  --inventory outputs\phase0c_frame1051_inventory.json `
+  --sample-plan outputs\phase0c_frame1051_sample_plan.json `
+  --data-prep-root E:\Miunaaaa\0-work\code\pcv-stage2-data-prep `
+  --out outputs\phase2a_python_path_stage_pilot.json `
+  --warmup 2 --samples 5
+```
+
+版本化文件：
+
+- `results/python_path_stage_frame1051_measured_summary_v1.json`；
+- `results/python_path_stage_frame1051_calibration_v1.json`；
+- `handoff/python_path_stage_frame1051_candidate_dms_v1.json`。
+
+该 handoff 覆盖 Longdress frame1051 的 800 个 derived 候选，状态为 `ready_for_provisional_integration`，仅适用于声明的 Python path profile。C++ 与 JavaScript 环境仍需分别测量，不能复用或混合本结果。

@@ -50,6 +50,7 @@ def build_measured_summary(
                 "mean_ms": result["mean_ms"],
                 "provenance": "measured",
                 "measurement_scope": result["measurement_scope"],
+                "filesystem_cache_policy": result.get("filesystem_cache_policy"),
                 **contract,
                 "eligible_for_allocation": False,
             }
@@ -69,6 +70,8 @@ def build_measured_summary(
         summary["delivery_version"] = delivery_version
     if pilot.get("environment_snapshot") is not None:
         summary["environment_snapshot"] = pilot["environment_snapshot"]
+    if pilot.get("filesystem_cache_policy") is not None:
+        summary["filesystem_cache_policy"] = pilot["filesystem_cache_policy"]
     return summary
 
 
@@ -88,6 +91,7 @@ def build_derived_handoff(
         raise DerivedExportError("inventory.candidates must be a list")
     models = calibration["representation_models"]
     contract = resolve_measurement_contract(calibration)
+    is_stage_timing = contract["measurement_kind"] == "parse_stage_end_to_end"
     requested_ready = allocation_integration_status == READY
     eligibility = evaluate_allocation_eligibility(
         calibration, release_gate_passed=requested_ready
@@ -115,30 +119,30 @@ def build_derived_handoff(
         }
         for candidate, prediction in zip(scope, predictions, strict=True):
             codec_params = candidate.get("codec_params") or {}
-            derived_candidates.append(
-                {
-                    "candidate_key": candidate["candidate_key"],
-                    "candidate_id": candidate["candidate_id"],
-                    "dataset_id": candidate["dataset_id"],
-                    "frame_id": candidate["frame_id"],
-                    "grid_profile_id": candidate["grid_profile_id"],
-                    "tile_id": candidate["tile_id"],
-                    "representation": representation,
-                    "pdl_ratio": candidate["pdl_ratio"],
-                    "qp": codec_params.get("qp"),
-                    "cl": codec_params.get("cl"),
-                    "point_count": candidate["point_count"],
-                    "file_size_bytes": candidate["file_size_bytes"],
-                    "d_hat_ms": prediction,
-                    "calibration_id": calibration["calibration_id"],
-                    "provenance": "derived",
-                    "recommended_for_allocation_pilot": recommended,
-                    **contract,
-                    "eligible_for_allocation": eligibility[
-                        "eligible_for_allocation"
-                    ],
-                }
-            )
+            derived_record = {
+                "candidate_key": candidate["candidate_key"],
+                "candidate_id": candidate["candidate_id"],
+                "dataset_id": candidate["dataset_id"],
+                "frame_id": candidate["frame_id"],
+                "grid_profile_id": candidate["grid_profile_id"],
+                "tile_id": candidate["tile_id"],
+                "representation": representation,
+                "pdl_ratio": candidate["pdl_ratio"],
+                "qp": codec_params.get("qp"),
+                "cl": codec_params.get("cl"),
+                "point_count": candidate["point_count"],
+                "file_size_bytes": candidate["file_size_bytes"],
+                "d_hat_ms": prediction,
+                "calibration_id": calibration["calibration_id"],
+                "provenance": "derived",
+                "recommended_for_allocation_pilot": recommended,
+                **contract,
+                "eligible_for_allocation": eligibility["eligible_for_allocation"],
+            }
+            if is_stage_timing:
+                derived_record["d_stage_ms"] = prediction
+                derived_record["d_hat_ms_semantics"] = "derived d_stage_ms"
+            derived_candidates.append(derived_record)
 
     if expected_representation_counts is not None:
         actual_counts = {
@@ -171,6 +175,7 @@ def build_derived_handoff(
             "allocation_integration_status"
         ],
         "allocation_eligibility_review": eligibility,
+        "primary_timing_field": "d_stage_ms" if is_stage_timing else "d_hat_ms",
         "allocation_use_scope": allocation_use_scope,
         "eligible_for_final_model": False,
         "cross_dataset_validated": False,

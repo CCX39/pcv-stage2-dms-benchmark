@@ -111,6 +111,20 @@ path 交付 loader -> loader 内部 open/read/parse -> positions/colors ready
 
 此时 open/read 属于该 path profile 的解析阶段开销，但结果只能代表该 path-based Python profile，不能自动代表浏览器流媒体 profile。
 
+阶段 2A 已冻结并实测第一版 Python path stage profile：
+
+```text
+environment_id          python310_open3d019_dracopy200_path_stage_windows_x64
+measurement_kind        parse_stage_end_to_end
+timing_start            path_delivered_to_loader
+timing_end              positions_colors_ready
+filesystem_cache_policy os_managed_repeated_path_load
+PLY                      open3d.t.io.read_point_cloud(path)
+DRC                      Path.read_bytes() + DracoPy.decode(bytes)
+```
+
+PLY 与 DRC 在同一 CPython 3.10.20 环境测量；两者均在计时内执行文件 open/read 和独立 canonical array 生成。该 profile 通过当前 Longdress frame1051 provisional release gate，但其资格严格限于 Python/Open3D/DracoPy/Windows path load 语义，不扩展到浏览器 ArrayBuffer、C++、严格冷缓存或其他版本。
+
 ## 7. measurement_kind 与字段
 
 新生成的 measured、calibrated、derived 记录必须携带：
@@ -209,7 +223,19 @@ results/measurement_asset_status_v1.json
 
 上述重新分类不表示历史测量伪造或实现错误，也不删除、覆盖或改写历史 JSON；它只修正这些结果相对于正式 `d_stage_ms` 的解释和资格。
 
-## 14. 下一阶段
+## 14. 当前合格 Python path handoff
+
+阶段 2A 新增：
+
+```text
+results/python_path_stage_frame1051_measured_summary_v1.json
+results/python_path_stage_frame1051_calibration_v1.json
+handoff/python_path_stage_frame1051_candidate_dms_v1.json
+```
+
+前两项分别是 `measured` 与 `calibrated` 证据；handoff 是覆盖 800 个候选的 `derived d_stage_ms`。只有 handoff 标记 `eligible_for_allocation = true`，且适用范围为 `provisional_python_path_profile` / Longdress frame1051 / Windows x64 / OS-managed repeated path load。该资格不改变历史 core/diagnostic 资产的 ineligible 状态，也不表示已完成 allocation 接入。
+
+## 15. 下一阶段
 
 最高优先级是 JavaScript 浏览器 Worker 的 `parse_stage_end_to_end` 测量设计：完整 `ArrayBuffer` 到达 Worker 后，计时实际 `PLYLoader` / `DRACOLoader` 或确认等价实现，终点为 positions/colors TypedArray ready。第一版排除 Worker 创建、输入输出 `postMessage`、`BufferGeometry`、GPU upload 和 render。
 
@@ -221,4 +247,4 @@ d_array_conversion_ms
 d_stage_ms
 ```
 
-Stage2 allocation 最终只使用通过资格审查的 `d_stage_ms`。本阶段不实现或运行 JavaScript benchmark。
+Stage2 allocation 最终只使用通过资格审查且与所选环境一致的 `d_stage_ms`。阶段 2A 没有实现或运行 JavaScript benchmark；后续 C++ 与 JavaScript 仍需独立建立 measured、calibrated 与 derived 资产。

@@ -89,6 +89,19 @@ class CalibrationTest(unittest.TestCase):
         ]
         self.assertEqual(choose_model(evaluations)["model_id"], "valid-baseline")
 
+    def test_nonnegative_models_fit_nonnegative_parameters_and_predictions(self) -> None:
+        records = [
+            record("tile-a", 100, 1000, 0.1),
+            record("tile-b", 200, 2000, 0.2),
+            record("tile-c", 300, 3000, 0.3),
+        ]
+        for representation, model_id in (("ply", "P3"), ("drc", "D4")):
+            spec = model_spec(representation, model_id)
+            parameters = fit_model(spec, records)
+            self.assertTrue(all(value >= 0 for value in parameters.values()))
+            predictions = predict_records(spec, parameters, records)
+            self.assertTrue(all(value >= 0 for value in predictions))
+
     def test_recommendation_threshold(self) -> None:
         self.assertTrue(
             recommendation_status(

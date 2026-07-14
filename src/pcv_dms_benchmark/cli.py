@@ -164,6 +164,29 @@ def main(argv: list[str] | None = None) -> int:
     numpy_calibration_parser.add_argument("--calibration-out", required=True)
     numpy_calibration_parser.add_argument("--handoff-out", required=True)
 
+    path_stage_pilot_parser = subparsers.add_parser(
+        "python-path-stage-pilot",
+        help="Measure Open3D PLY and DracoPy DRC from paths in one Python 3.10 profile.",
+    )
+    path_stage_pilot_parser.add_argument("--inventory", required=True)
+    path_stage_pilot_parser.add_argument("--sample-plan", required=True)
+    path_stage_pilot_parser.add_argument("--data-prep-root", required=True)
+    path_stage_pilot_parser.add_argument("--out", required=True)
+    path_stage_pilot_parser.add_argument("--warmup", type=int, default=2)
+    path_stage_pilot_parser.add_argument("--samples", type=int, default=5)
+    path_stage_pilot_parser.add_argument("--smoke", action="store_true")
+
+    path_stage_calibration_parser = subparsers.add_parser(
+        "python-path-stage-calibrate",
+        help="Calibrate and export the Python path-stage d_stage_ms handoff.",
+    )
+    path_stage_calibration_parser.add_argument("--smoke", required=True)
+    path_stage_calibration_parser.add_argument("--pilot", required=True)
+    path_stage_calibration_parser.add_argument("--inventory", required=True)
+    path_stage_calibration_parser.add_argument("--measured-summary-out", required=True)
+    path_stage_calibration_parser.add_argument("--calibration-out", required=True)
+    path_stage_calibration_parser.add_argument("--handoff-out", required=True)
+
     args = parser.parse_args(argv)
     if args.command == "inventory":
         inventory = _run_inventory(args)
@@ -191,6 +214,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_python_numpy_v2_pilot(args)
     if args.command == "python-numpy-v2-calibrate":
         return _run_python_numpy_v2_calibration(args)
+    if args.command == "python-path-stage-pilot":
+        return _run_python_path_stage_pilot(args)
+    if args.command == "python-path-stage-calibrate":
+        return _run_python_path_stage_calibration(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
@@ -675,6 +702,164 @@ def _run_python_numpy_v2_calibration(args: argparse.Namespace) -> int:
     print(f"candidate_count={handoff['candidate_count']}")
     print(f"allocation_integration_status={integration_status}")
     return 0 if integration_status == "ready_for_provisional_integration" else 1
+
+
+def _run_python_path_stage_pilot(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.python_benchmark import (
+        load_json_object,
+        select_candidates,
+    )
+    from pcv_dms_benchmark.python_path_stage import (
+        run_python_path_stage_pilot,
+        write_pilot,
+    )
+
+    inventory = load_json_object(args.inventory)
+    sample_plan = load_json_object(args.sample_plan)
+    candidates = select_candidates(inventory, sample_plan, smoke=args.smoke)
+    result = run_python_path_stage_pilot(
+        candidates,
+        data_prep_root=args.data_prep_root,
+        warmup_count=args.warmup,
+        sample_count=args.samples,
+    )
+    write_pilot(args.out, result)
+    print(f"pilot_out={Path(args.out)}")
+    print(f"environment_id={result['environment_id']}")
+    print(f"candidate_count={result['candidate_count']}")
+    print(f"success_count={result['success_count']}")
+    print(f"failure_count={result['failure_count']}")
+    print(f"status={result['status']}")
+    return 0 if result["failure_count"] == 0 else 1
+
+
+def _run_python_path_stage_calibration(args: argparse.Namespace) -> int:
+    from pcv_dms_benchmark.calibration import calibrate_models
+    from pcv_dms_benchmark.derived_export import (
+        build_derived_handoff,
+        build_measured_summary,
+        sha256_file,
+        write_json,
+    )
+    from pcv_dms_benchmark.measurement_records import (
+        PARSE_STAGE_END_TO_END,
+        PATH_DELIVERED,
+        POSITIONS_COLORS_READY,
+        evaluate_allocation_eligibility,
+    )
+    from pcv_dms_benchmark.python_benchmark import load_json_object
+    from pcv_dms_benchmark.python_path_stage import (
+        ALLOCATION_USE_SCOPE,
+        CALIBRATION_ID,
+        ENVIRONMENT_ID,
+        FILESYSTEM_CACHE_POLICY,
+        HANDOFF_ID,
+        MEASUREMENT_SCOPE,
+        audit_path_stage_smoke,
+    )
+
+    smoke = load_json_object(args.smoke)
+    pilot = load_json_object(args.pilot)
+    inventory = load_json_object(args.inventory)
+    smoke_audit = audit_path_stage_smoke(smoke)
+    calibration = calibrate_models(
+        pilot,
+        inventory,
+        source_pilot_sha256=sha256_file(args.pilot),
+        source_inventory_sha256=sha256_file(args.inventory),
+        calibration_id=CALIBRATION_ID,
+        expected_environment_id=ENVIRONMENT_ID,
+        expected_measurement_scope=MEASUREMENT_SCOPE,
+        allocation_use_scope=ALLOCATION_USE_SCOPE,
+        profile_limitation=(
+            "specific to Python 3.10.20, Open3D 0.19.0 Tensor path loading, "
+            "DracoPy 2.0.0, numpy 2.2.6, Windows x64, and OS-managed repeated path loads"
+        ),
+        delivery_version="v1",
+    )
+    models_recommended = all(
+        calibration["representation_models"][representation][
+            "recommended_for_allocation_pilot"
+        ]
+        for representation in ("ply", "drc")
+    )
+    contract_valid = (
+        calibration.get("measurement_kind") == PARSE_STAGE_END_TO_END
+        and calibration.get("timing_start") == PATH_DELIVERED
+        and calibration.get("timing_end") == POSITIONS_COLORS_READY
+    )
+    pilot_valid = calibration["pilot_audit"]["status"] == "passed"
+    release_gate_passed = (
+        smoke_audit["status"] == "passed"
+        and pilot_valid
+        and models_recommended
+        and contract_valid
+    )
+    eligibility = evaluate_allocation_eligibility(
+        calibration, release_gate_passed=release_gate_passed
+    )
+    release_gate = {
+        "smoke": smoke_audit,
+        "pilot_audit": calibration["pilot_audit"],
+        "same_environment_for_ply_and_drc": True,
+        "contract_valid": contract_valid,
+        "all_models_recommended": models_recommended,
+        "status": "passed" if eligibility["eligible_for_allocation"] else "failed",
+        "allocation_eligibility": eligibility,
+    }
+    calibration.update(
+        {
+            "environment_snapshot": pilot.get("environment_snapshot"),
+            "filesystem_cache_policy": FILESYSTEM_CACHE_POLICY,
+            "source_smoke_sha256": sha256_file(args.smoke),
+            "release_gate": release_gate,
+            "eligible_for_allocation": eligibility["eligible_for_allocation"],
+            "allocation_integration_status": eligibility[
+                "allocation_integration_status"
+            ],
+        }
+    )
+    measured_summary = build_measured_summary(
+        pilot,
+        source_pilot_sha256=sha256_file(args.pilot),
+        delivery_version="v1",
+    )
+    measured_summary["execution_profile"] = ENVIRONMENT_ID
+    handoff = build_derived_handoff(
+        inventory,
+        calibration,
+        expected_representation_counts={"ply": 200, "drc": 600},
+        handoff_id=HANDOFF_ID,
+        allocation_use_scope=ALLOCATION_USE_SCOPE,
+        delivery_version="v1",
+        allocation_integration_status=eligibility["allocation_integration_status"],
+        limitations=[
+            "provisional Python path profile for Longdress frame1051 only",
+            "OS-managed repeated path loads; not a strict cold-cache disk profile",
+            "not cross-frame or cross-dataset validated",
+            "does not represent C++ or browser Worker environments",
+            "allocation must join by candidate_key and verify tile_id plus candidate_id",
+        ],
+    )
+    handoff["release_gate"] = release_gate
+    handoff["filesystem_cache_policy"] = FILESYSTEM_CACHE_POLICY
+
+    write_json(args.measured_summary_out, measured_summary)
+    write_json(args.calibration_out, calibration)
+    write_json(args.handoff_out, handoff)
+    for representation in ("ply", "drc"):
+        model = calibration["representation_models"][representation]
+        print(f"{representation}_selected_model={model['selected_model']}")
+        print(
+            f"{representation}_normalized_mae="
+            f"{model['cross_validation_metrics']['normalized_mae']:.9f}"
+        )
+    print(f"candidate_count={handoff['candidate_count']}")
+    print(
+        "allocation_integration_status="
+        f"{handoff['allocation_integration_status']}"
+    )
+    return 0 if handoff["eligible_for_allocation"] else 1
 
 
 if __name__ == "__main__":

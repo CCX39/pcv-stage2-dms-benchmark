@@ -49,6 +49,14 @@ MODEL_SPECS = {
             1,
             "d_hat_ms = intercept + file_size_bytes_coef * (file_size_bytes / 1000)",
         ),
+        ModelSpec(
+            "P3",
+            "ply",
+            ("point_count",),
+            1,
+            "d_hat_ms = nonnegative_intercept + nonnegative_point_count_coef * "
+            "(point_count / 1000)",
+        ),
     ),
     "drc": (
         ModelSpec("D0", "drc", (), 0, "d_hat_ms = median(training p50_ms)"),
@@ -75,6 +83,14 @@ MODEL_SPECS = {
             "d_hat_ms = intercept + point_count_coef * (point_count / 1000) + "
             "file_size_bytes_coef * (file_size_bytes / 1000) + "
             "qp10_effect * I(qp=10) + qp12_effect * I(qp=12); qp=8 is baseline",
+        ),
+        ModelSpec(
+            "D4",
+            "drc",
+            ("point_count",),
+            1,
+            "d_hat_ms = nonnegative_intercept + nonnegative_point_count_coef * "
+            "(point_count / 1000)",
         ),
     ),
 }
@@ -400,8 +416,47 @@ def fit_model(spec: ModelSpec, records: list[dict[str, Any]]) -> dict[str, float
         return {"constant_median_ms": float(np.median(targets))}
 
     design, parameter_names = _design_matrix(spec, records)
+    if spec.model_id in {"P3", "D4"}:
+        coefficients = _fit_nonnegative_intercept_slope(design, targets)
+        return {
+            name: float(value)
+            for name, value in zip(parameter_names, coefficients, strict=True)
+        }
     coefficients, _, _, _ = np.linalg.lstsq(design, targets, rcond=None)
     return {name: float(value) for name, value in zip(parameter_names, coefficients, strict=True)}
+
+
+def _fit_nonnegative_intercept_slope(
+    design: np.ndarray, targets: np.ndarray
+) -> np.ndarray:
+    if design.shape[1] != 2:
+        raise CalibrationError("nonnegative model requires intercept and one feature")
+    feature = design[:, 1]
+    candidates: list[np.ndarray] = []
+    unconstrained, _, _, _ = np.linalg.lstsq(design, targets, rcond=None)
+    if np.all(unconstrained >= 0):
+        candidates.append(unconstrained)
+
+    intercept_only = np.asarray([max(0.0, float(np.mean(targets))), 0.0])
+    denominator = float(np.dot(feature, feature))
+    slope = (
+        0.0
+        if denominator == 0
+        else max(0.0, float(np.dot(feature, targets)) / denominator)
+    )
+    candidates.extend(
+        (
+            intercept_only,
+            np.asarray([0.0, slope]),
+            np.zeros(2, dtype=np.float64),
+        )
+    )
+    return min(
+        candidates,
+        key=lambda coefficients: float(
+            np.sum(np.square(targets - design @ coefficients))
+        ),
+    )
 
 
 def predict_records(
