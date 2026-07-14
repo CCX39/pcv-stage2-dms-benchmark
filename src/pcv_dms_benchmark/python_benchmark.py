@@ -13,6 +13,12 @@ import numpy as np
 from plyfile import PlyData
 
 from pcv_dms_benchmark.measurement_stats import summarize_samples
+from pcv_dms_benchmark.measurement_records import (
+    BACKEND_CORE_ENTRY,
+    CORE_PARSE_MICROBENCHMARK,
+    POSITIONS_COLORS_READY,
+    resolve_measurement_contract,
+)
 
 
 ENVIRONMENT_ID = "python_windows_x64"
@@ -161,7 +167,21 @@ def run_python_pilot(
     measurement_boundary: str = MEASUREMENT_BOUNDARY,
     measurement_scope: str = "longdress_frame1051_pilot",
     environment_snapshot: dict[str, Any] | None = None,
+    measurement_kind: str = CORE_PARSE_MICROBENCHMARK,
+    timing_start: str = BACKEND_CORE_ENTRY,
+    timing_end: str = POSITIONS_COLORS_READY,
+    profile_implementation_confirmed: bool = False,
 ) -> dict[str, Any]:
+    contract = resolve_measurement_contract(
+        {
+            "measurement_kind": measurement_kind,
+            "timing_start": timing_start,
+            "timing_end": timing_end,
+        }
+    )
+    measurement_kind = contract["measurement_kind"]
+    timing_start = contract["timing_start"]
+    timing_end = contract["timing_end"]
     if warmup_count < 0:
         raise PythonBenchmarkError("warmup_count must be non-negative")
     if sample_count <= 0:
@@ -188,6 +208,9 @@ def run_python_pilot(
                     drc_backend_error,
                     backend_info=backend_infos.get("drc"),
                     measurement_scope=measurement_scope,
+                    measurement_kind=measurement_kind,
+                    timing_start=timing_start,
+                    timing_end=timing_end,
                 )
             )
             continue
@@ -201,6 +224,9 @@ def run_python_pilot(
                 processor=processor,
                 backend_info=backend_infos.get(str(representation)),
                 measurement_scope=measurement_scope,
+                measurement_kind=measurement_kind,
+                timing_start=timing_start,
+                timing_end=timing_end,
             )
         )
 
@@ -223,6 +249,14 @@ def run_python_pilot(
         ),
         "provenance": "measured",
         "measurement_scope": measurement_scope,
+        "measurement_kind": measurement_kind,
+        "timing_start": timing_start,
+        "timing_end": timing_end,
+        "profile_implementation_confirmed": profile_implementation_confirmed,
+        "network_time_included": False,
+        "rendering_time_included": False,
+        "provenance_complete": True,
+        "validation_passed": False,
         "eligible_for_final_model": False,
         "eligible_for_allocation": False,
         "results": results,
@@ -243,6 +277,9 @@ def measure_candidate(
     clock_ns: Callable[[], int] = time.perf_counter_ns,
     backend_info: BackendInfo | None = None,
     measurement_scope: str = "longdress_frame1051_pilot",
+    measurement_kind: str = CORE_PARSE_MICROBENCHMARK,
+    timing_start: str = BACKEND_CORE_ENTRY,
+    timing_end: str = POSITIONS_COLORS_READY,
 ) -> dict[str, Any]:
     record = _base_record(
         candidate,
@@ -250,6 +287,9 @@ def measure_candidate(
         sample_count,
         backend_info=backend_info,
         measurement_scope=measurement_scope,
+        measurement_kind=measurement_kind,
+        timing_start=timing_start,
+        timing_end=timing_end,
     )
     try:
         asset_path = _resolve_asset_path(data_prep_root, candidate.get("asset_ref"))
@@ -373,6 +413,9 @@ def _base_record(
     *,
     backend_info: BackendInfo | None = None,
     measurement_scope: str = "longdress_frame1051_pilot",
+    measurement_kind: str = CORE_PARSE_MICROBENCHMARK,
+    timing_start: str = BACKEND_CORE_ENTRY,
+    timing_end: str = POSITIONS_COLORS_READY,
 ) -> dict[str, Any]:
     representation = candidate.get("representation")
     codec_params = candidate.get("codec_params") or {}
@@ -396,6 +439,9 @@ def _base_record(
         "sample_count": sample_count,
         "provenance": "measured",
         "measurement_scope": measurement_scope,
+        "measurement_kind": measurement_kind,
+        "timing_start": timing_start,
+        "timing_end": timing_end,
         "eligible_for_final_model": False,
         "eligible_for_allocation": False,
     }
@@ -409,6 +455,9 @@ def _failure_record(
     *,
     backend_info: BackendInfo | None = None,
     measurement_scope: str = "longdress_frame1051_pilot",
+    measurement_kind: str = CORE_PARSE_MICROBENCHMARK,
+    timing_start: str = BACKEND_CORE_ENTRY,
+    timing_end: str = POSITIONS_COLORS_READY,
 ) -> dict[str, Any]:
     record = _base_record(
         candidate,
@@ -416,6 +465,9 @@ def _failure_record(
         sample_count,
         backend_info=backend_info,
         measurement_scope=measurement_scope,
+        measurement_kind=measurement_kind,
+        timing_start=timing_start,
+        timing_end=timing_end,
     )
     record.update(
         {

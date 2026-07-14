@@ -1,5 +1,7 @@
 # 阶段 1B.1：旧 Python benchmark 与当前结果差异审查
 
+> **阶段 1B.5 重分类：** 本文对比的当前 Python 结果现归类为 `core_parse_microbenchmark`；旧 Open3D path 证据归类为 `path_loader_diagnostic`。两者均不可直接作为正式 `d_stage_ms` 或 allocation handoff。
+
 ## 1. 审查背景与结论摘要
 
 阶段 1A/1B 在当前 Python 契约下得到的 provisional 结果显示，同一点数下 DRC 路径明显快于 PLY；旧 `PointCloud_Benchmark` 的本地既有结果则显示 DRC 慢于 PLY。本轮只读核对代码、资产 metadata 与既有结果，不运行任何新 benchmark，也不修改模型或 handoff。

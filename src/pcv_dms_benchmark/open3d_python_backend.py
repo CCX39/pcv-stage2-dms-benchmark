@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import numpy as np
 
+from pcv_dms_benchmark.measurement_records import evaluate_allocation_eligibility
 from pcv_dms_benchmark.python_benchmark import (
     Processor,
     PythonBenchmarkError,
@@ -250,7 +251,9 @@ def allocation_release_status(
             for representation in ("ply", "drc")
         )
     )
-    return "ready_for_provisional_integration" if ready else "review_pending"
+    return evaluate_allocation_eligibility(
+        calibration, release_gate_passed=ready
+    )["allocation_integration_status"]
 
 
 def _validate_binary_ply_header(payload: bytes) -> None:

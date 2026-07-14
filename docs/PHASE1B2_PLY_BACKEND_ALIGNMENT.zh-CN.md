@@ -1,5 +1,7 @@
 # 阶段 1B.2：PLY backend 最小对齐实验
 
+> **阶段 1B.5 重分类：** Open3D path 对齐结果为 `measurement_kind = path_loader_diagnostic`，plyfile 内存结果为核心诊断；二者 `eligible_for_allocation = false`。本文只保留 backend 差异证据。
+
 ## 1. 实验目的
 
 阶段 1B.1 发现当前 `plyfile + BytesIO + canonical arrays` 路径与旧项目 Open3D path API 的 PLY 耗时差异很大。本轮只用 4 个 frame1051 tile binary PLY 做诊断，判断 plyfile 路径是否可能是当前 Python PLY 耗时偏高的主要原因。

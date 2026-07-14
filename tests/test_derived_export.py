@@ -96,8 +96,14 @@ class DerivedExportTest(unittest.TestCase):
     def test_handoff_is_derived_and_has_no_raw_samples(self) -> None:
         handoff = build_derived_handoff(self.inventory, self.calibration)
         self.assertEqual(handoff["provenance"], "derived")
+        self.assertEqual(handoff["measurement_kind"], "core_parse_microbenchmark")
+        self.assertFalse(handoff["eligible_for_allocation"])
+        self.assertEqual(
+            handoff["allocation_integration_status"], "ineligible_measurement_scope"
+        )
         for candidate in handoff["candidates"]:
             self.assertEqual(candidate["provenance"], "derived")
+            self.assertFalse(candidate["eligible_for_allocation"])
             self.assertNotIn("raw_samples_ms", candidate)
             self.assertGreater(candidate["d_hat_ms"], 0)
 
@@ -124,6 +130,8 @@ class DerivedExportTest(unittest.TestCase):
         }
         summary = build_measured_summary(pilot, source_pilot_sha256="ABC")
         self.assertEqual(summary["provenance"], "measured")
+        self.assertEqual(summary["measurement_kind"], "core_parse_microbenchmark")
+        self.assertFalse(summary["eligible_for_allocation"])
         self.assertEqual(summary["records"][0]["provenance"], "measured")
         self.assertNotIn("raw_samples_ms", summary["records"][0])
 

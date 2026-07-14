@@ -1,0 +1,82 @@
+{
+  "status_schema_version": "1.0.0",
+  "decision_date": "2026-07-14",
+  "formal_allocation_metric": "d_stage_ms",
+  "formal_measurement_kind": "parse_stage_end_to_end",
+  "formal_timing_start": "complete_payload_delivered_to_parser",
+  "formal_timing_end": "positions_colors_ready",
+  "assets": [
+    {
+      "path": "results/python_frame1051_measured_summary_v1.json",
+      "profile": "python_plyfile_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_for_audit",
+      "eligible_for_allocation": false,
+      "reason": "从驻留内存 bytes 测量历史 Python backend core，不是已确认的目标播放器完整解析阶段。",
+      "superseded_by": null
+    },
+    {
+      "path": "results/python_frame1051_calibration_v1.json",
+      "profile": "python_plyfile_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_for_audit",
+      "eligible_for_allocation": false,
+      "reason": "Calibration 继承 source core microbenchmark scope。",
+      "superseded_by": null
+    },
+    {
+      "path": "handoff/python_frame1051_candidate_dms_v1.json",
+      "profile": "python_plyfile_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_for_audit",
+      "eligible_for_allocation": false,
+      "reason": "Derived 值继承 source core scope，不能表示 d_stage_ms。",
+      "superseded_by": null
+    },
+    {
+      "path": "results/python_numpy_frame1051_measured_summary_v2.json",
+      "profile": "python_numpy_fast_ply_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_as_core_lower_bound",
+      "eligible_for_allocation": false,
+      "reason": "专用 NumPy PLY processor 是受控 core 下界，不是已确认的播放器解析模块。",
+      "superseded_by": null
+    },
+    {
+      "path": "results/python_numpy_frame1051_calibration_v2.json",
+      "profile": "python_numpy_fast_ply_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_as_core_lower_bound",
+      "eligible_for_allocation": false,
+      "reason": "Calibration 继承 NumPy/DracoPy core microbenchmark scope。",
+      "superseded_by": null
+    },
+    {
+      "path": "handoff/python_numpy_frame1051_candidate_dms_v2.json",
+      "profile": "python_numpy_fast_ply_dracopy",
+      "measurement_kind": "core_parse_microbenchmark",
+      "historical_status": "retained_as_core_lower_bound",
+      "eligible_for_allocation": false,
+      "reason": "Derived 值继承 source core scope；仅通过模型验证不能取得 allocation 资格。",
+      "superseded_by": null
+    },
+    {
+      "path": "outputs/phase1b2_ply_backend_alignment.json",
+      "profile": "python_open3d_path_alignment",
+      "measurement_kind": "path_loader_diagnostic",
+      "historical_status": "retained_for_audit",
+      "eligible_for_allocation": false,
+      "reason": "path API 包含文件加载，只用于诊断 plyfile backend 差异。",
+      "superseded_by": null
+    },
+    {
+      "path": "outputs/phase1b3_python_open3d_smoke.json",
+      "profile": "python_open3d_windows_from_bytes",
+      "measurement_kind": "capability_probe",
+      "historical_status": "blocked_capability_profile",
+      "eligible_for_allocation": false,
+      "reason": "Windows Open3D from-bytes PLY capability 返回空点云，未形成完整 measurement profile。",
+      "superseded_by": null
+    }
+  ]
+}

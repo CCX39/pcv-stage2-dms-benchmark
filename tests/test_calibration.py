@@ -126,6 +126,11 @@ class CalibrationTest(unittest.TestCase):
         self.assertEqual(artifact["representation_models"]["drc"]["provenance"], "calibrated")
         self.assertNotEqual(artifact["provenance"], "measured")
         self.assertNotEqual(artifact["provenance"], "derived")
+        self.assertEqual(artifact["measurement_kind"], "core_parse_microbenchmark")
+        self.assertFalse(artifact["eligible_for_allocation"])
+        self.assertEqual(
+            artifact["allocation_integration_status"], "ineligible_measurement_scope"
+        )
 
     @staticmethod
     def _evaluation(model_id: str, *, mae: float, parameter_count: int, valid: bool) -> dict:

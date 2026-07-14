@@ -1,5 +1,7 @@
 # 阶段 1B.4：NumPy 快速 PLY 内存解析与 Python v2 交付
 
+> **阶段 1B.5 重分类：** NumPy v2 measured/calibrated/derived 资产现统一归类为 `core_parse_microbenchmark` / `d_core_ms` 下界，`eligible_for_allocation = false`、`allocation_integration_status = ineligible_measurement_scope`。本文中的 gate、数值和模型仍是历史实验事实，但不代表正式 `d_stage_ms`。
+
 ## 1. 背景与结论
 
 阶段 1B.2 已证明 Open3D path API 明显快于 `plyfile`，但该路径包含磁盘读取；阶段 1B.3 又确认当前 Open3D 0.19.0 Windows wheel 的 `read_point_cloud_from_bytes` 对 PLY 返回空点云。继续更换或编译 Open3D wheel 不属于本阶段路线。

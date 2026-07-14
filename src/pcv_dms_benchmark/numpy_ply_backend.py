@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 
+from pcv_dms_benchmark.measurement_records import evaluate_allocation_eligibility
 from pcv_dms_benchmark.ply_backend_alignment import (
     measure_processor,
     select_alignment_candidates,
@@ -341,7 +342,9 @@ def allocation_release_status(
             for representation in ("ply", "drc")
         )
     )
-    return "ready_for_provisional_integration" if ready else "review_pending"
+    return evaluate_allocation_eligibility(
+        calibration, release_gate_passed=ready
+    )["allocation_integration_status"]
 
 
 def write_numpy_alignment(path: str | Path, result: dict[str, Any]) -> None:

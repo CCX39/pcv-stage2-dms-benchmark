@@ -1,5 +1,7 @@
 # 阶段 1B.3：Open3D 内存 PLY 路径与 Python v2 交付审查
 
+> **阶段 1B.5 重分类：** 本阶段 Open3D from-bytes smoke 是 `capability_probe` / `blocked_capability_profile`，不是 `d_stage_ms` measured 资产，`eligible_for_allocation = false`。
+
 ## 1. 阶段目标与实际状态
 
 阶段 1B.2 的 4-candidate 对齐表明，Open3D 0.19.0 path API 即使包含磁盘读取，也远快于阶段 1A 的 plyfile 内存路径。因此本阶段原计划使用 `open3d.io.read_point_cloud_from_bytes(payload, format="ply")` 建立正式内存 PLY processor，并在同一 Python 3.10 环境重新测量 PLY 与 DRC。

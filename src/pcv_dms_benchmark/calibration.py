@@ -6,6 +6,12 @@ from typing import Any, Iterable
 
 import numpy as np
 
+from pcv_dms_benchmark.measurement_records import (
+    INELIGIBLE_SCOPE,
+    evaluate_allocation_eligibility,
+    resolve_measurement_contract,
+)
+
 
 TARGET_STATISTIC = "p50_ms"
 CALIBRATION_ID = "python_frame1051_p50_calibration_v1"
@@ -82,6 +88,7 @@ def audit_pilot(
     expected_measurement_scope: str = "longdress_frame1051_pilot",
 ) -> dict[str, Any]:
     errors: list[str] = []
+    source_contract = resolve_measurement_contract(pilot)
     results = pilot.get("results")
     inventory_candidates = inventory.get("candidates")
     if not isinstance(results, list):
@@ -140,6 +147,13 @@ def audit_pilot(
             errors.append(f"{prefix}.eligible_for_final_model must be false")
         if record.get("eligible_for_allocation") is not False:
             errors.append(f"{prefix}.eligible_for_allocation must be false")
+        try:
+            record_contract = resolve_measurement_contract(record)
+        except ValueError as exc:
+            errors.append(f"{prefix} has invalid timing contract: {exc}")
+        else:
+            if record_contract != source_contract:
+                errors.append(f"{prefix} timing contract differs from pilot")
         for field in ("p50_ms", "mean_ms", "point_count", "file_size_bytes"):
             if not _is_positive_finite(record.get(field)):
                 errors.append(f"{prefix}.{field} must be a finite positive number")
@@ -159,6 +173,7 @@ def audit_pilot(
         "representation_counts": representation_counts,
         "unique_candidate_key_count": len(set(result_keys)),
         "identity_error_count": 0,
+        **source_contract,
     }
 
 
@@ -184,6 +199,7 @@ def calibrate_models(
     inventory_candidates = inventory["candidates"]
     measured_records = pilot["results"]
     identity = _inventory_identity(inventory_candidates)
+    source_contract = resolve_measurement_contract(pilot)
     representation_models: dict[str, Any] = {}
 
     for representation in ("ply", "drc"):
@@ -238,8 +254,34 @@ def calibrate_models(
             "cross_frame_validated": False,
             "limitations": limitations,
             "provenance": "calibrated",
+            **source_contract,
+            "eligible_for_allocation": False,
         }
 
+    validation_passed = all(
+        model["recommended_for_allocation_pilot"] for model in representation_models.values()
+    )
+    applicable_scope = {
+        "dataset_id": identity["dataset_id"],
+        "frame_id": identity["frame_id"],
+        "grid_profile_id": identity["grid_profile_id"],
+        "environment_id": pilot["environment_id"],
+    }
+    eligibility_input = {
+        **source_contract,
+        "environment_id": pilot["environment_id"],
+        "profile_implementation_confirmed": pilot.get(
+            "profile_implementation_confirmed", False
+        ),
+        "network_time_included": pilot.get("network_time_included", False),
+        "rendering_time_included": pilot.get("rendering_time_included", False),
+        "provenance_complete": True,
+        "validation_passed": validation_passed,
+        "applicable_scope": applicable_scope,
+    }
+    eligibility = evaluate_allocation_eligibility(
+        eligibility_input, release_gate_passed=False
+    )
     artifact = {
         "calibration_schema_version": "1.0.0",
         "calibration_id": calibration_id,
@@ -261,6 +303,19 @@ def calibrate_models(
         },
         "representation_models": representation_models,
         "provenance": "calibrated",
+        **source_contract,
+        "profile_implementation_confirmed": eligibility_input[
+            "profile_implementation_confirmed"
+        ],
+        "network_time_included": eligibility_input["network_time_included"],
+        "rendering_time_included": eligibility_input["rendering_time_included"],
+        "provenance_complete": True,
+        "validation_passed": validation_passed,
+        "applicable_scope": applicable_scope,
+        "eligible_for_allocation": False,
+        "allocation_integration_status": eligibility.get(
+            "allocation_integration_status", INELIGIBLE_SCOPE
+        ),
     }
     if delivery_version is not None:
         artifact["delivery_version"] = delivery_version

@@ -1,5 +1,7 @@
 # 阶段 1A Python 最小测量链路与 Longdress pilot
 
+> **阶段 1B.5 重分类：** 本文 measured 结果现归类为 `measurement_kind = core_parse_microbenchmark`，描述 `d_core_ms`，不是正式 `d_stage_ms`；`eligible_for_allocation = false`。本文保留当时执行事实，当前解释以测量契约和阶段 1B.5 文档为准。
+
 本文档记录阶段 1A 的 Python 进程内 PLY / DRC 直接测量实现与本机 pilot 状态。文档不记录具体耗时数值；真实记录保存在 git ignored `outputs/`。
 
 ## 1. 环境与依赖

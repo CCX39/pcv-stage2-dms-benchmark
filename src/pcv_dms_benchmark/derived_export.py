@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from pcv_dms_benchmark.calibration import model_spec, predict_records
+from pcv_dms_benchmark.measurement_records import (
+    READY,
+    evaluate_allocation_eligibility,
+    resolve_measurement_contract,
+)
 
 
 class DerivedExportError(ValueError):
@@ -27,6 +32,7 @@ def build_measured_summary(
     source_pilot_sha256: str,
     delivery_version: str | None = None,
 ) -> dict[str, Any]:
+    contract = resolve_measurement_contract(pilot)
     records = []
     for result in pilot["results"]:
         records.append(
@@ -44,6 +50,8 @@ def build_measured_summary(
                 "mean_ms": result["mean_ms"],
                 "provenance": "measured",
                 "measurement_scope": result["measurement_scope"],
+                **contract,
+                "eligible_for_allocation": False,
             }
         )
     summary = {
@@ -53,6 +61,8 @@ def build_measured_summary(
         "target_statistic": "p50_ms",
         "candidate_count": len(records),
         "provenance": "measured",
+        **contract,
+        "eligible_for_allocation": False,
         "records": records,
     }
     if delivery_version is not None:
@@ -77,6 +87,11 @@ def build_derived_handoff(
     if not isinstance(candidates, list):
         raise DerivedExportError("inventory.candidates must be a list")
     models = calibration["representation_models"]
+    contract = resolve_measurement_contract(calibration)
+    requested_ready = allocation_integration_status == READY
+    eligibility = evaluate_allocation_eligibility(
+        calibration, release_gate_passed=requested_ready
+    )
     derived_candidates: list[dict[str, Any]] = []
     representation_status: dict[str, Any] = {}
 
@@ -95,6 +110,8 @@ def build_derived_handoff(
             "selected_model": model["selected_model"],
             "normalized_mae": model["cross_validation_metrics"]["normalized_mae"],
             "recommended_for_allocation_pilot": recommended,
+            "measurement_kind": contract["measurement_kind"],
+            "eligible_for_allocation": eligibility["eligible_for_allocation"],
         }
         for candidate, prediction in zip(scope, predictions, strict=True):
             codec_params = candidate.get("codec_params") or {}
@@ -116,6 +133,10 @@ def build_derived_handoff(
                     "calibration_id": calibration["calibration_id"],
                     "provenance": "derived",
                     "recommended_for_allocation_pilot": recommended,
+                    **contract,
+                    "eligible_for_allocation": eligibility[
+                        "eligible_for_allocation"
+                    ],
                 }
             )
 
@@ -144,6 +165,12 @@ def build_derived_handoff(
         "candidate_count": len(derived_candidates),
         "representation_status": representation_status,
         "provenance": "derived",
+        **contract,
+        "eligible_for_allocation": eligibility["eligible_for_allocation"],
+        "allocation_integration_status": eligibility[
+            "allocation_integration_status"
+        ],
+        "allocation_eligibility_review": eligibility,
         "allocation_use_scope": allocation_use_scope,
         "eligible_for_final_model": False,
         "cross_dataset_validated": False,
@@ -159,8 +186,6 @@ def build_derived_handoff(
     }
     if delivery_version is not None:
         artifact["delivery_version"] = delivery_version
-    if allocation_integration_status is not None:
-        artifact["allocation_integration_status"] = allocation_integration_status
     return artifact
 
 

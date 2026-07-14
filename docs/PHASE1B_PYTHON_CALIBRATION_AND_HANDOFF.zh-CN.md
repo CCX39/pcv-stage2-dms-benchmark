@@ -1,5 +1,7 @@
 # 阶段 1B Python pilot 模型标定与 frame1051 derived d_ms 交付
 
+> **阶段 1B.5 重分类：** v1 measured/calibrated/derived 资产继承 `core_parse_microbenchmark`，只表示 `d_core_ms`；历史 JSON 不改，但 handoff 现为 `eligible_for_allocation = false` / `ineligible_measurement_scope`。本文中的旧 provisional 推荐不再构成 allocation 资格。
+
 本文档记录阶段 1B 的 measured 输入审查、按 tile 分组验证、模型比较、最终公式和版本化 handoff。该交付是单帧 provisional pilot，不是论文级通用模型。
 
 ## 1. 输入与审查

@@ -1,6 +1,6 @@
 # 当前项目状态
 
-更新日期：2026-07-14。本文档记录阶段 1B.4 NumPy 快速 PLY、同环境 Python v2 重测、标定与交付后的本机状态；较早章节保留历史过程，当前结论以第 15 节以后为准。
+更新日期：2026-07-14。本文档记录阶段 1B.5 解析阶段端到端契约修正后的本机状态；较早章节保留历史过程，当前契约与 allocation 资格以第 22 节以后为准。
 
 ## 1. 项目与 Git 基线
 
@@ -350,3 +350,81 @@ cb3a197 修改说明：readme更新
 ```
 
 旧 benchmark 当前存在上述既有修改/未跟踪内容，不能再沿用阶段 1B.1 中“仅一个未跟踪脚本”的旧状态描述。本阶段对三个外部仓库只执行 `git status`、`git log` 和 metadata/资产只读访问，没有写入、格式化或提交任何外部文件；上述旧 benchmark 工作区内容保持原样，不纳入本项目提交。
+
+## 22. 阶段 1B.5 正式契约决策
+
+Stage2 allocation 正式指标由旧的宽泛 `d_ms` 表述修正为：
+
+```text
+formal_allocation_metric = d_stage_ms
+measurement_kind         = parse_stage_end_to_end
+timing_start             = complete_payload_delivered_to_parser
+timing_end               = positions_colors_ready
+```
+
+`d_stage_ms` 从完整候选完成网络传输并交付实际端侧解析模块、模块开始处理的瞬间计时，到 `positions float32[N,3]` 和 `colors uint8[N,3]` 完整就绪为止。实际 parser/loader/decoder、中间对象、必要转换、分配与复制计入；网络、GPU、geometry、场景和 render 默认排除。
+
+原“resident payload -> backend/core converter -> canonical arrays”边界保留为 `d_core_ms`，用于 backend 诊断与算法下界，默认 `measurement_kind = core_parse_microbenchmark`、`eligible_for_allocation = false`。
+
+## 23. 历史资产与 allocation 状态
+
+- plyfile v1 measured/calibration/handoff：`core_parse_microbenchmark`，`retained_for_audit`；
+- NumPy v2 measured/calibration/handoff：`core_parse_microbenchmark`，`retained_as_core_lower_bound`；
+- Open3D path 对齐：`path_loader_diagnostic`；
+- Open3D from-bytes blocker：`capability_probe` / `blocked_capability_profile`。
+
+上述资产全部：
+
+```text
+eligible_for_allocation = false
+allocation_integration_status = ineligible_measurement_scope
+```
+
+这项重分类不否定历史 measured/calibrated/derived 结果真实性，也没有改写六个 v1/v2 JSON。此前 v2 的 `review_pending` 是阶段 1B.4 模型 gate 状态；1B.5 在更高层 measurement scope gate 上明确判定其不具备 allocation 资格。
+
+新增权威状态清单：
+
+```text
+results/measurement_asset_status_v1.json
+```
+
+## 24. 代码与 schema 状态
+
+新增 `src/pcv_dms_benchmark/measurement_records.py`，冻结四类 measurement kind、三类 timing start、唯一 timing end 和 allocation 资格检查。现有 Python runner 新生成的内存核心测量明确标记为 core；calibration、measured summary 与 derived exporter 继承 source 分类。
+
+旧 schema 缺 `measurement_kind` 时默认解释为 `core_parse_microbenchmark`，缺起点时默认 `backend_core_entry`。core/path/capability 即使请求 ready，也会被 exporter 降级为 `ineligible_measurement_scope`。只有实际 `parse_stage_end_to_end` profile 在环境、实现、边界、provenance、验证、scope 和 release gate 全部通过时才可 ready。
+
+本阶段没有运行任何新 benchmark，没有重新拟合模型，没有产生新耗时数值，也没有修改 allocation。
+
+## 25. 下一阶段建议
+
+最高优先级是 JavaScript 浏览器 Worker 的 `parse_stage_end_to_end` 设计与实现：
+
+```text
+完整 ArrayBuffer 已到 Worker
+-> 实际 PLYLoader / DRACOLoader
+-> positions/colors TypedArray ready
+```
+
+第一版排除 Worker 创建、输入输出 `postMessage`、`BufferGeometry`、GPU upload 和 render。可选分解 `d_loader_core_ms` 与 `d_array_conversion_ms`，但 allocation 最终只使用通过 release review 的 `d_stage_ms`。
+
+## 26. 阶段 1B.5 外部仓库只读状态
+
+阶段开始与收尾检查使用相同只读命令。当前实际状态：
+
+```text
+pcv-stage2-allocation
+## master...origin/master
+5870ccc feat: add frame 1051 integrated proxy validation
+
+pcv-stage2-data-prep
+## main...origin/main
+8473226 feat: record validated frame 1051 DRC pilot corpus
+
+PointCloud_Benchmark
+## main...origin/main
+?? scripts/plot_time_vs_point_count_filtered.py
+b99815b docs: publish Figure 2 benchmark reproducibility record
+```
+
+三个外部仓库均未被本阶段写入、格式化或提交。`reference/Decode_Worker.js` 继续只读，SHA-256 仍为 `0747B51E9983E59ACC5E911047AE7EBC71213303A60EC7B0548329101775E56C`。
